@@ -1,0 +1,8 @@
+{
+  "files": [
+    "themes/theme-pixel.js",
+    "themes/theme-rainbow.js",
+    "themes/theme-minimal.js",
+    "themes/theme-neon.js"
+  ]
+}
