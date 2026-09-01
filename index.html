@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#141a33">
+<title>今天做什么 · 命运轮盘</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+:root{
+  --bg:linear-gradient(160deg,#141a33 0%,#23264d 50%,#1a1633 100%);
+  --text:#f2f0fa;--dim:rgba(242,240,250,.55);
+  --panel:rgba(255,255,255,.08);--border:rgba(255,255,255,.16);--blur:18px;
+  --accent:#8f7cf8;--accent2:#5eead4;
+  --glow:0 0 28px rgba(143,124,248,.35);--glow-color:rgba(143,124,248,.35);
+  --font-head:'Georgia','Songti SC',serif;
+  --font-body:'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+  user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;
+  transition:background .6s ease,color .6s ease;
+}
+.hidden{display:none!important}
+#stage{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:16px 16px calc(env(safe-area-inset-bottom) + 24px)}
+h1{font-family:var(--font-head);font-size:clamp(24px,6vw,34px);font-weight:700;letter-spacing:.18em;text-shadow:var(--glow);text-align:center;transition:color .4s}
+#hint{color:var(--dim);font-size:13px;letter-spacing:.14em;min-height:20px;text-align:center;transition:color .4s}
+#wheelWrap{position:relative;width:min(88vw,400px);aspect-ratio:1}
+#wheel{width:100%;height:100%;display:block}
+#card{position:absolute;inset:8%;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--panel);-webkit-backdrop-filter:blur(var(--blur));backdrop-filter:blur(var(--blur));border:1px solid var(--border);border-radius:28px;box-shadow:0 24px 70px rgba(0,0,0,.35);animation:pop .4s cubic-bezier(.2,1.4,.4,1);padding:20px}
+@keyframes pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.card-tag{font-size:11px;letter-spacing:.3em;color:var(--dim)}
+#cardTitle{font-family:var(--font-head);font-size:clamp(22px,6vw,34px);font-weight:800;letter-spacing:.08em;text-align:center;color:var(--accent2);text-shadow:var(--glow)}
+#cardActions{display:flex;flex-direction:column;gap:12px;width:100%;align-items:center}
+.btn{border:none;cursor:pointer;border-radius:999px;padding:13px 30px;font-size:15px;font-weight:600;letter-spacing:.1em;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 24px rgba(0,0,0,.25);transition:transform .15s,opacity .2s;width:100%;max-width:280px}
+.btn:active{transform:scale(.95)}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:none}
+#flash{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;background:var(--panel);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:50%;opacity:0;pointer-events:none;transition:opacity .3s}
+#flash.show{opacity:1}
+#flashText{font-size:clamp(30px,8vw,52px);font-weight:900;color:var(--accent2);letter-spacing:.1em;text-shadow:var(--glow)}
+#gear{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:16px;z-index:50;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--panel);-webkit-backdrop-filter:blur(var(--blur));backdrop-filter:blur(var(--blur));color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+#gear:active{transform:rotate(30deg) scale(.92)}
+#settings{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .3s;display:flex;justify-content:flex-end}
+#settings.open{opacity:1;pointer-events:auto}
+#settings .panel{width:min(86vw,340px);height:100%;background:var(--panel);-webkit-backdrop-filter:blur(var(--blur));backdrop-filter:blur(var(--blur));border-left:1px solid var(--border);padding:calc(env(safe-area-inset-top) + 24px) 20px 20px;transform:translateX(100%);transition:transform .35s cubic-bezier(.2,.8,.2,1);overflow-y:auto}
+#settings.open .panel{transform:none}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.panel-head span{font-family:var(--font-head);font-size:20px;font-weight:700;letter-spacing:.2em}
+.x{border:none;background:none;color:var(--dim);font-size:22px;cursor:pointer;padding:4px}
+.sec{font-size:12px;letter-spacing:.25em;color:var(--dim);margin:18px 0 10px}
+.theme-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.theme-item{border:1px solid var(--border);border-radius:16px;padding:10px;cursor:pointer;background:var(--panel);text-align:center;transition:transform .15s}
+.theme-item:active{transform:scale(.95)}
+.theme-item .sw{height:52px;border-radius:10px;margin-bottom:8px;border:1px solid rgba(255,255,255,.14)}
+.theme-item .nm{font-size:12px;color:var(--text);letter-spacing:.05em}
+.theme-item.on{outline:2px solid var(--accent);outline-offset:2px}
+.sound-row{display:flex;justify-content:space-between;align-items:center;padding:12px 4px;cursor:pointer}
+.sound-row .lb{font-size:14px;letter-spacing:.08em}
+.slider{position:relative;width:46px;height:26px;background:rgba(255,255,255,.18);border-radius:13px;transition:background .3s;display:inline-block;flex:none}
+.slider::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .3s}
+.sound-row input{display:none}
+.sound-row input:checked + .slider{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.sound-row input:checked + .slider::after{transform:translateX(20px)}
+#taskView{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);cursor:pointer;text-align:center;padding:20px}
+#check{font-size:clamp(48px,14vw,80px);color:var(--accent2);opacity:0;transform:scale(.3);transition:all .5s cubic-bezier(.2,1.4,.4,1);text-shadow:0 0 30px var(--glow-color)}
+#taskView.done #check{opacity:1;transform:scale(1)}
+#taskName{font-family:var(--font-head);font-size:clamp(32px,9vw,54px);font-weight:800;letter-spacing:.1em;color:var(--text);transition:color .6s,transform .6s,text-shadow .6s}
+#taskView.done #taskName{color:var(--accent2);transform:scale(1.05);text-shadow:var(--glow)}
+#taskMeta{font-size:clamp(16px,4.5vw,22px);color:var(--dim);letter-spacing:.15em}
+#taskHint{font-size:13px;color:var(--dim);letter-spacing:.2em;margin-top:24px;animation:breathe 2s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
+</style>
+</head>
+<body>
+
+<button id="gear" aria-label="设置">⚙</button>
+
+<div id="settings">
+  <div class="panel">
+    <div class="panel-head"><span>设 置</span><button id="closeSettings" class="x">✕</button></div>
+    <div class="sec">主题风格</div>
+    <div class="theme-grid" id="themeGrid"></div>
+    <div class="sec">声音</div>
+    <label class="sound-row">
+      <span class="lb">转盘音效</span>
+      <input type="checkbox" id="soundToggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<main id="stage">
+  <h1 id="headline">今天做什么？</h1>
+  <div id="wheelWrap">
+    <canvas id="wheel"></canvas>
+    <div id="card" class="hidden">
+      <div class="card-tag" id="cardTag">命运的决定</div>
+      <div id="cardTitle"></div>
+      <div id="cardActions"></div>
+    </div>
+    <div id="flash"><span id="flashText"></span></div>
+  </div>
+  <p id="hint">点击转盘，开始转动</p>
+</main>
+
+<section id="taskView" class="hidden">
+  <div id="check">✓</div>
+  <h2 id="taskName"></h2>
+  <p id="taskMeta"></p>
+  <p id="taskHint">点击完成</p>
+</section>
+
+<script>
+(function(){
+'use strict';
+
+/* ========== 数据 ========== */
+var ACTIVITIES = [
+  { name:'学习 HTML', bg:null },
+  { name:'看硬核知识', bg:null },
+  { name:'看电影 / 动漫解说', bg:null },
+  { name:'画画', bg:['听歌','听视频','安静画'] },
+  { name:'数字油画 / 手工', bg:['听歌','听视频','安静做'] },
+  { name:'出门溜达', bg:['听歌','听书','安静走'] },
+  { name:'做家务', bg:['听歌','听书','听视频','安静做'] },
+  { name:'出门夜跑', bg:['听歌','安静跑'] },
+  { name:'出门购物', bg:['听歌','安静逛'] },
+  { name:'和 ChatGPT 聊项目书', bg:null },
+  { name:'找 AI 研究 OC', bg:null },
+  { name:'写小说', bg:null }
+];
+var TIMES = ['15分钟','30分钟','45分钟','1小时','1.5小时','2小时'];
+
+var THEMES = {
+  glass:{
+    name:'暗夜玻璃',
+    bg:'linear-gradient(160deg,#141a33 0%,#23264d 50%,#1a1633 100%)',
+    text:'#f2f0fa',dim:'rgba(242,240,250,.55)',
+    panel:'rgba(255,255,255,.08)',border:'rgba(255,255,255,.16)',blur:18,
+    accent:'#8f7cf8',accent2:'#5eead4',
+    fontHead:'Georgia,\'Songti SC\',serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#5b5bd6','#4a90e2','#3fb8d6','#41b8a0','#7a6be0','#c05fd8','#e0a63f','#e06060','#6f8ae0','#55a8e0','#a06fe0','#45c8b8'],
+    wheelText:'#fff',wheelStroke:'rgba(255,255,255,.16)',wheelStrokeText:'rgba(0,0,0,.4)',
+    glow:'0 0 28px rgba(143,124,248,.35)',glowColor:'rgba(143,124,248,.35)'
+  },
+  aurora:{
+    name:'极光',
+    bg:'linear-gradient(160deg,#04121a 0%,#0a2f33 55%,#0a1f2e 100%)',
+    text:'#e8fdf7',dim:'rgba(232,253,247,.55)',
+    panel:'rgba(255,255,255,.07)',border:'rgba(120,255,220,.18)',blur:16,
+    accent:'#3dffc4',accent2:'#7de3ff',
+    fontHead:'Avenir Next,\'PingFang SC\',sans-serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#00e5c0','#0aa8b8','#2f7fd0','#5f6de8','#8f5fe0','#2bb3a0','#3bd0c0','#1f9ec9','#4f6fd9','#7f6fdb','#00c9a7','#39d0b0'],
+    wheelText:'#fff',wheelStroke:'rgba(255,255,255,.15)',wheelStrokeText:'rgba(0,0,0,.4)',
+    glow:'0 0 26px rgba(61,255,196,.3)',glowColor:'rgba(61,255,196,.3)'
+  },
+  minimal:{
+    name:'米白极简',
+    bg:'linear-gradient(180deg,#faf9f6 0%,#efede6 100%)',
+    text:'#2e2d28',dim:'rgba(46,45,40,.55)',
+    panel:'rgba(255,255,255,.72)',border:'rgba(46,45,40,.1)',blur:14,
+    accent:'#c8a24a',accent2:'#6f8f6d',
+    fontHead:'Georgia,\'Songti SC\',serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#d9d2c0','#cbbfa8','#b7a88f','#e2d9c8','#cfc2ab','#c0b198','#e6ddcc','#d2c6b0','#bba98f','#dbd2be','#c7b9a0','#ddd3bf'],
+    wheelText:'#3a352c',wheelStroke:'rgba(46,45,40,.08)',wheelStrokeText:'rgba(255,255,255,.6)',
+    glow:'none',glowColor:'rgba(200,162,74,.25)'
+  },
+  ink:{
+    name:'水墨丹青',
+    bg:'linear-gradient(180deg,#f4efe4 0%,#e8e0cf 100%)',
+    text:'#2a2722',dim:'rgba(42,39,34,.55)',
+    panel:'rgba(255,255,255,.6)',border:'rgba(42,39,34,.22)',blur:10,
+    accent:'#b0452f',accent2:'#3f6b5a',
+    fontHead:'\'Kaiti SC\',\'STKaiti\',\'KaiTi\',serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#3f3a34','#57504a','#6f675f','#878078','#9b948c','#b0a89e','#574f48','#6e665e','#877f77','#3a352f','#9b948c','#b0a89e'],
+    wheelText:'#f4efe4',wheelStroke:'rgba(244,239,228,.22)',wheelStrokeText:'rgba(0,0,0,.45)',
+    glow:'none',glowColor:'rgba(176,69,47,.25)'
+  },
+  neon:{
+    name:'赛博霓虹',
+    bg:'linear-gradient(160deg,#0a0118 0%,#16062e 55%,#0a0f2e 100%)',
+    text:'#f0f6ff',dim:'rgba(240,246,255,.6)',
+    panel:'rgba(18,8,48,.55)',border:'rgba(0,255,255,.35)',blur:12,
+    accent:'#00ffd5',accent2:'#ff2fb3',
+    fontHead:'\'PingFang SC\',sans-serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#ff2fb3','#00ffd5','#7b2fff','#ffd60a','#00b8ff','#ff5c2f','#b300ff','#00ff9f','#ff2f8f','#00d5ff','#9d4dff','#ffd60a'],
+    wheelText:'#fff',wheelStroke:'rgba(0,0,0,.3)',wheelStrokeText:'rgba(0,0,0,.5)',
+    glow:'0 0 22px rgba(0,255,213,.6)',glowColor:'rgba(0,255,213,.5)'
+  },
+  retro:{
+    name:'复古未来',
+    bg:'linear-gradient(160deg,#f7e8c9 0%,#f2c98f 55%,#e29a5e 100%)',
+    text:'#23324d',dim:'rgba(35,50,77,.6)',
+    panel:'rgba(255,244,220,.72)',border:'rgba(35,50,77,.2)',blur:10,
+    accent:'#1f5f5b',accent2:'#c23b22',
+    fontHead:'Georgia,serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#e07a3f','#d9562f','#f2b45c','#f7d98c','#4f8f8c','#2f6f6b','#8c5f4f','#d9a05a','#b24f3f','#5f9f9c','#e29a5e','#c97a3f'],
+    wheelText:'#fff8ec',wheelStroke:'rgba(35,50,77,.15)',wheelStrokeText:'rgba(0,0,0,.4)',
+    glow:'none',glowColor:'rgba(194,59,34,.25)'
+  },
+  forest:{
+    name:'森林秘境',
+    bg:'linear-gradient(170deg,#0f2418 0%,#17382a 55%,#0e2a20 100%)',
+    text:'#eef4ea',dim:'rgba(238,244,234,.55)',
+    panel:'rgba(255,255,255,.06)',border:'rgba(190,220,180,.2)',blur:16,
+    accent:'#c8b06a',accent2:'#8fb97f',
+    fontHead:'Georgia,\'Songti SC\',serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#4a7c59','#5f9e6e','#7fb069','#3f6b52','#86a873','#5c8a5c','#b08d57','#8a9a5b','#4f7f5f','#6d9d6d','#9aaf6e','#3e6e4e'],
+    wheelText:'#f2f6ee',wheelStroke:'rgba(0,0,0,.25)',wheelStrokeText:'rgba(0,0,0,.4)',
+    glow:'0 0 26px rgba(200,176,106,.25)',glowColor:'rgba(200,176,106,.3)'
+  },
+  midnight:{
+    name:'黑金之夜',
+    bg:'linear-gradient(180deg,#0b0b0d 0%,#17171b 60%,#0b0b0d 100%)',
+    text:'#f4ead2',dim:'rgba(244,234,210,.55)',
+    panel:'rgba(255,255,255,.05)',border:'rgba(212,175,55,.35)',blur:12,
+    accent:'#d4af37',accent2:'#f4ead2',
+    fontHead:'Georgia,\'Songti SC\',serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#d4af37','#b8922a','#8a7020','#d9c173','#a8852d','#c9a94f','#e8d48a','#9c7a26','#d4af37','#bfa04a','#7d641d','#d0b25e'],
+    wheelText:'#1a1608',wheelStroke:'rgba(0,0,0,.25)',wheelStrokeText:'rgba(0,0,0,.35)',
+    glow:'0 0 26px rgba(212,175,55,.35)',glowColor:'rgba(212,175,55,.4)'
+  },
+  sakura:{
+    name:'樱粉物语',
+    bg:'linear-gradient(170deg,#fdf0f3 0%,#f9dde6 55%,#f2cfe0 100%)',
+    text:'#5a3d4f',dim:'rgba(90,61,79,.55)',
+    panel:'rgba(255,255,255,.62)',border:'rgba(200,120,160,.25)',blur:14,
+    accent:'#d98ab0',accent2:'#8fb7c9',
+    fontHead:'\'Yuanti SC\',\'YouYuan\',\'PingFang SC\',sans-serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#f2a9c4','#e88bb0','#f7c8d9','#e5a3c8','#f6d5e0','#e09ec0','#f2bcd0','#dc8fb5','#f9cfe0','#eab2cd','#f5c2d6','#dda0c2'],
+    wheelText:'#5a3d4f',wheelStroke:'rgba(255,255,255,.4)',wheelStrokeText:'rgba(255,255,255,.65)',
+    glow:'0 0 24px rgba(217,138,176,.35)',glowColor:'rgba(217,138,176,.3)'
+  },
+  galaxy:{
+    name:'星河璀璨',
+    bg:'radial-gradient(120% 90% at 75% 15%,#2a1a5e 0%,#151034 45%,#0a0718 100%)',
+    text:'#f2ecff',dim:'rgba(242,236,255,.6)',
+    panel:'rgba(255,255,255,.06)',border:'rgba(170,130,255,.3)',blur:14,
+    accent:'#b48cff',accent2:'#ffb3e0',
+    fontHead:'Georgia,serif',
+    fontBody:'\'PingFang SC\',\'Noto Sans SC\',sans-serif',
+    wheel:['#7a5fd0','#9a7ae8','#5f8fd0','#b48cff','#6a4fa8','#8a6ad8','#d08ad8','#7a9ae8','#a86ad8','#6f8fd8','#c0a0f0','#8f6fd8'],
+    wheelText:'#f4eeff',wheelStroke:'rgba(0,0,0,.25)',wheelStrokeText:'rgba(0,0,0,.4)',
+    glow:'0 0 28px rgba(180,140,255,.4)',glowColor:'rgba(180,140,255,.35)'
+  }
+};
+var themeKeys = Object.keys(THEMES);
+
+/* ========== 状态 ========== */
+var currentTheme='glass', soundOn=true;
+var stage='idle';           // idle | mainSpin | mainResult | three | timeSpin | bgSpin | task | done
+var rotation=0, spinning=false, spinRound=0, picked=null, items=ACTIVITIES;
+var centerLabel='开转';
+
+/* ========== DOM ========== */
+function $(id){return document.getElementById(id);}
+var headline=$('headline'), hint=$('hint'), wheelWrap=$('wheelWrap'), canvas=$('wheel'),
+    card=$('card'), cardTag=$('cardTag'), cardTitle=$('cardTitle'), cardActions=$('cardActions'),
+    flash=$('flash'), flashText=$('flashText'), gear=$('gear'), settings=$('settings'),
+    closeSettings=$('closeSettings'), themeGrid=$('themeGrid'), soundToggle=$('soundToggle'),
+    taskView=$('taskView'), taskName=$('taskName'), taskMeta=$('taskMeta'), taskHint=$('taskHint');
+
+function setHeadline(t){headline.textContent=t;}
+function setHint(t){hint.textContent=t;}
+function showCard(){card.classList.remove('hidden');}
+function hideCard(){card.classList.add('hidden');}
+function showFlash(t){flashText.textContent=t;flash.classList.add('show');setTimeout(function(){flash.classList.remove('show');},1550);}
+function hexToRgba(hex,a){
+  var h=hex.replace('#','');
+  var r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),b=parseInt(h.substring(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+function shuffle(arr){for(var i=arr.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
+
+/* ========== 音效 ========== */
+var audioCtx=null;
+function ensureAudio(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}}
+function tick(){
+  if(!soundOn)return;ensureAudio();if(!audioCtx)return;
+  try{
+    var t=audioCtx.currentTime;
+    var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type='triangle';o.frequency.value=680+Math.random()*240;
+    g.gain.setValueAtTime(.045,t);
+    g.gain.exponentialRampToValueAtTime(.0001,t+.045);
+    o.connect(g);g.connect(audioCtx.destination);
+    o.start(t);o.stop(t+.05);
+  }catch(e){}
+}
+function chime(){
+  if(!soundOn)return;ensureAudio();if(!audioCtx)return;
+  try{
+    [523.25,659.25,783.99].forEach(function(f,i){
+      var t=audioCtx.currentTime+i*.11;
+      var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(.07,t);
+      g.gain.exponentialRampToValueAtTime(.0001,t+.5);
+      o.connect(g);g.connect(audioCtx.destination);
+      o.start(t);o.stop(t+.55);
+    });
+  }catch(e){}
+}
+
+/* ========== 主题 ========== */
+function applyTheme(key,save){
+  var t=THEMES[key];currentTheme=key;
+  var s=document.documentElement.style;
+  s.setProperty('--bg',t.bg);
+  s.setProperty('--text',t.text);
+  s.setProperty('--dim',t.dim);
+  s.setProperty('--panel',t.panel);
+  s.setProperty('--border',t.border);
+  s.setProperty('--blur',t.blur+'px');
+  s.setProperty('--accent',t.accent);
+  s.setProperty('--accent2',t.accent2);
+  s.setProperty('--glow',t.glow||'none');
+  s.setProperty('--glow-color',t.glowColor||'transparent');
+  s.setProperty('--font-head',t.fontHead);
+  s.setProperty('--font-body',t.fontBody);
+  if(save){try{localStorage.setItem('wheel-theme',key);}catch(e){}}
+  updateThemeGrid();
+  drawWheel();
+}
+function buildThemeGrid(){
+  themeGrid.innerHTML='';
+  themeKeys.forEach(function(k){
+    var t=THEMES[k];
+    var item=document.createElement('div');
+    item.className='theme-item';
+    item.dataset.key=k;
+    item.innerHTML='<div class="sw" style="background:'+t.bg+'"></div><div class="nm">'+t.name+'</div>';
+    item.addEventListener('click',function(){applyTheme(k,true);});
+    themeGrid.appendChild(item);
+  });
+}
+function updateThemeGrid(){
+  themeGrid.querySelectorAll('.theme-item').forEach(function(el){
+    el.classList.toggle('on',el.dataset.key===currentTheme);
+  });
+}
+
+/* ========== 转盘绘制 ========== */
+function drawWheel(){
+  var size=wheelWrap.clientWidth;
+  var dpr=window.devicePixelRatio||1;
+  canvas.width=size*dpr;canvas.height=size*dpr;
+  var ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var cx=size/2,cy=size/2,R=size/2-4;
+  var n=items.length,step=Math.PI*2/n;
+  var t=THEMES[currentTheme];
+  ctx.clearRect(0,0,size,size);
+  /* 外环 */
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,R+2,0,Math.PI*2);
+  ctx.strokeStyle=hexToRgba(t.accent,.55);ctx.lineWidth=3;ctx.stroke();
+  ctx.restore();
+  /* 扇区 */
+  for(var i=0;i<n;i++){
+    var s=rotation+i*step,e=s+step;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,R,s,e);ctx.closePath();
+    ctx.fillStyle=t.wheel[i%t.wheel.length];ctx.fill();
+    ctx.strokeStyle=t.wheelStroke;ctx.lineWidth=1.5;ctx.stroke();
+    /* 竖排文字 */
+    var mid=s+step/2;
+    var chars=items[i].replace(/\s/g,'').split('');
+    var fs=Math.min(R*.135,R*.6/Math.max(chars.length,1));
+    fs=Math.max(fs,8.5);
+    ctx.save();
+    ctx.translate(cx,cy);ctx.rotate(mid);
+    ctx.font='600 '+fs+'px '+t.fontBody;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=t.wheelText;
+    ctx.strokeStyle=t.wheelStrokeText;
+    ctx.lineWidth=Math.max(2.5,fs*.16);ctx.lineJoin='round';
+    var r0=R*.3;
+    for(var j=0;j<chars.length;j++){
+      var x=r0+j*fs*1.05;
+      ctx.strokeText(chars[j],x,0);
+      ctx.fillText(chars[j],x,0);
+    }
+    ctx.restore();
+  }
+  /* 中心圆 */
+  ctx.beginPath();ctx.arc(cx,cy,R*.23,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,.32)';ctx.fill();
+  ctx.strokeStyle=hexToRgba(t.accent,.9);ctx.lineWidth=2;ctx.stroke();
+  if(centerLabel){
+    ctx.fillStyle=t.accent2;
+    ctx.font='700 '+Math.round(R*.095)+'px '+t.fontBody;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(centerLabel,cx,cy);
+  }
+  /* 指针 */
+  ctx.save();
+  ctx.beginPath();ctx.moveTo(cx,2);ctx.lineTo(cx-14,24);ctx.lineTo(cx+14,24);ctx.closePath();
+  ctx.fillStyle=t.accent;
+  ctx.shadowColor=t.accent;ctx.shadowBlur=14;
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ========== 转动动画 ========== */
+function spinTo(targetIndex,list,onDone){
+  if(spinning)return;
+  spinning=true;
+  var n=list.length,step=Math.PI*2/n,tau=Math.PI*2;
+  var cur=((rotation%tau)+tau)%tau;
+  var delta=(-Math.PI/2-(targetIndex+.5)*step-cur);
+  delta=((delta%tau)+tau)%tau;
+  var total=delta+(5+Math.random()*3)*tau;
+  var start=rotation;
+  var dur=4000+Math.random()*900;
+  var t0=performance.now();
+  var last=-1;
+  function frame(now){
+    var p=Math.min((now-t0)/dur,1);
+    var e=1-Math.pow(1-p,4);
+    rotation=start+total*e;
+    var sec=Math.floor((((rotation%tau)+tau)%tau)/step);
+    if(sec!==last&&p<1){last=sec;tick();}
+    drawWheel();
+    if(p<1){requestAnimationFrame(frame);}
+    else{spinning=false;onDone(targetIndex);}
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ========== 流程 ========== */
+function startMainSpin(){
+  if(spinning)return;
+  stage='mainSpin';items=ACTIVITIES;centerLabel='…';
+  hideCard();
+  setHeadline('命运转动中…');
+  setHint('转盘转起来啦');
+  var idx=Math.floor(Math.random()*ACTIVITIES.length);
+  spinTo(idx,ACTIVITIES,function(i){
+    spinRound++;
+    var landed=ACTIVITIES[i];
+    chime();
+    if(spinRound>=3){showThree(landed);}
+    else{showMainResult(landed);}
+  });
+}
+function showMainResult(a){
+  stage='mainResult';centerLabel='';
+  var left=3-spinRound;
+  setHeadline('转到啦！');
+  setHint(left>0?('不满意可以再转 '+left+' 次'):'就它了');
+  cardTag.textContent='命运的决定';
+  cardTitle.textContent=a.name;
+  cardActions.innerHTML='';
+  var ok=document.createElement('button');
+  ok.className='btn';ok.textContent='就它了 ✓';
+  ok.addEventListener('click',function(){startTimeSpin(a);});
+  cardActions.appendChild(ok);
+  if(left>0){
+    var ag=document.createElement('button');
+    ag.className='btn ghost';ag.textContent='再转一次（剩 '+left+' 次）';
+    ag.addEventListener('click',startMainSpin);
+    cardActions.appendChild(ag);
+  }
+  showCard();
+}
+function showThree(landed){
+  stage='three';centerLabel='';
+  setHeadline('必须三选一');
+  setHint('命运已锁定');
+  cardTag.textContent='三选一';
+  cardTitle.textContent='就选一个吧';
+  cardActions.innerHTML='';
+  var others=ACTIVITIES.filter(function(a){return a.name!==landed.name;});
+  shuffle(others);
+  var choices=shuffle([landed,others[0],others[1]]);
+  choices.forEach(function(a){
+    var b=document.createElement('button');
+    b.className='btn ghost';b.textContent=a.name;
+    b.addEventListener('click',function(){startTimeSpin(a);});
+    cardActions.appendChild(b);
+  });
+  showCard();
+}
+function startTimeSpin(a){
+  picked={activity:a,time:null,bg:null};
+  stage='timeSpin';items=TIMES;centerLabel='…';
+  hideCard();
+  setHeadline('做多久？');
+  setHint('时间交给命运');
+  var idx=Math.floor(Math.random()*TIMES.length);
+  spinTo(idx,TIMES,function(i){
+    picked.time=TIMES[i];
+    showFlash(TIMES[i]);
+    chime();
+    setTimeout(function(){
+      if(picked.activity.bg&&picked.activity.bg.length){startBgSpin();}
+      else{goTask();}
+    },1650);
+  });
+}
+function startBgSpin(){
+  stage='bgSpin';centerLabel='…';
+  var opts=picked.activity.bg;
+  items=opts;
+  setHeadline('配点什么？');
+  setHint('背景声音交给命运');
+  var idx=Math.floor(Math.random()*opts.length);
+  spinTo(idx,opts,function(i){
+    picked.bg=opts[i];
+    showFlash(opts[i]);
+    chime();
+    setTimeout(goTask,1650);
+  });
+}
+function goTask(){
+  stage='task';
+  taskName.textContent=picked.activity.name;
+  var parts=[picked.time];
+  if(picked.bg){parts.push(picked.bg);}
+  taskMeta.textContent=parts.join(' · ');
+  taskHint.textContent='点击完成';
+  taskView.classList.remove('hidden');
+  taskView.classList.remove('done');
+  setHeadline('去完成吧');
+  setHint('做完记得回来点一下');
+}
+function completeTask(){
+  if(stage!=='task')return;
+  stage='done';
+  taskView.classList.add('done');
+  taskHint.textContent='完成！';
+  chime();
+  setTimeout(resetAll,1900);
+}
+function resetAll(){
+  stage='idle';spinRound=0;picked=null;items=ACTIVITIES;centerLabel='开转';
+  taskView.classList.add('hidden');
+  hideCard();
+  setHeadline('今天做什么？');
+  setHint('点击转盘，开始转动');
+  drawWheel();
+}
+
+/* ========== 事件 ========== */
+canvas.addEventListener('click',function(){
+  ensureAudio();
+  if(stage==='idle'){startMainSpin();}
+});
+gear.addEventListener('click',function(){ensureAudio();settings.classList.add('open');});
+function closeSettingsFn(){settings.classList.remove('open');}
+closeSettings.addEventListener('click',closeSettingsFn);
+settings.addEventListener('click',function(e){if(e.target===settings)closeSettingsFn();});
+soundToggle.addEventListener('change',function(){
+  soundOn=soundToggle.checked;
+  try{localStorage.setItem('wheel-sound',soundOn?'1':'0');}catch(e){}
+});
+taskView.addEventListener('click',completeTask);
+window.addEventListener('resize',function(){if(!spinning)drawWheel();});
+
+/* ========== 初始化 ========== */
+try{currentTheme=localStorage.getItem('wheel-theme')||'glass';if(!THEMES[currentTheme])currentTheme='glass';}catch(e){}
+try{soundOn=localStorage.getItem('wheel-sound')!=='0';}catch(e){}
+soundToggle.checked=soundOn;
+buildThemeGrid();
+applyTheme(currentTheme,false);
+})();
+</script>
+</body>
+</html>
