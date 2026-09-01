@@ -231,6 +231,8 @@ var THEMES={
 var themeKeys=Object.keys(THEMES);
 
 var currentTheme='rainbow',stage='idle',rotation=0,spinning=false,spinRound=0,picked=null,items=ACTIVITIES,timeSpinRound=0;
+/* 记录三次主转盘分别转到的活动，用于最终三选一 */
+var spinResults=[];
 
 function $(id){return document.getElementById(id);}
 var headline=$('headline'),hint=$('hint'),wheelWrap=$('wheelWrap'),canvas=$('wheel'),pointer=$('pointer'),
@@ -334,8 +336,10 @@ function startMainSpin(){
   setHeadline('命运转动中…');setHint('转盘转起来啦');
   var idx=Math.floor(Math.random()*ACTIVITIES.length);
   spinTo(idx,ACTIVITIES,function(i){
-    spinRound++;var landed=ACTIVITIES[i];
-    if(spinRound>=3)showThree(landed);else showMainResult(landed);
+    spinRound++;
+    var landed=ACTIVITIES[i];
+    spinResults.push(landed);
+    if(spinRound>=3)showThree();else showMainResult(landed);
   });
 }
 function showMainResult(a){
@@ -351,12 +355,12 @@ function showMainResult(a){
   }
   showCard();
 }
-function showThree(landed){
-  stage='three';setHeadline('必须三选一');setHint('命运已锁定');
-  cardTag.textContent='三选一';cardTitle.textContent='就选一个吧';cardActions.innerHTML='';
-  var others=ACTIVITIES.filter(function(x){return x.name!==landed.name;});shuffle(others);
-  var choices=shuffle([landed,others[0],others[1]]);
-  choices.forEach(function(a){
+function showThree(){
+  stage='three';setHeadline('必须三选一');setHint('从三次转到的里面选一个');
+  cardTag.textContent='三选一';cardTitle.textContent='三次转到的';cardActions.innerHTML='';
+  /* 三选一 = 前三次转到的活动（每次随机，不固定） */
+  shuffle(spinResults);
+  spinResults.forEach(function(a){
     var b=document.createElement('button');b.className='btn ghost';b.textContent=a.name;
     b.addEventListener('click',function(){startTimeSpin(a);});cardActions.appendChild(b);
   });
@@ -432,6 +436,7 @@ function completeTask(){
 }
 function resetAll(){
   stage='idle';spinRound=0;timeSpinRound=0;picked=null;items=ACTIVITIES;
+  spinResults=[];
   taskView.classList.add('hidden');hideCard();
   setHeadline('今天做什么？');setHint('点击转盘开始');drawWheel();
 }
