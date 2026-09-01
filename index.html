@@ -178,6 +178,7 @@ h1{font-size:clamp(22px,5vw,36px);font-weight:700;text-align:center;transition:a
 (function(){
 'use strict';
 
+/* ===== 活动与时间数据 ===== */
 var ACTIVITIES=[
   {name:'学习HTML',bg:null},
   {name:'看硬核知识',bg:null},
@@ -194,45 +195,29 @@ var ACTIVITIES=[
 ];
 var TIMES=['15分钟','30分钟','45分钟','1小时','1.5小时','2小时'];
 
-var THEMES={
-  pixel:{
-    name:'像素复古',
-    bg:'#c0c0c0',text:'#000080',dim:'rgba(0,0,128,.6)',
-    panel:'rgba(192,192,192,.95)',border:'#000080',
-    accent:'#000080',accent2:'#008080',
-    wheel:['#000080','#008080','#800080','#808000','#800000','#008000','#0000FF','#00FFFF','#FF00FF','#FFFF00','#FF0000','#00FF00'],
-    cardRadius:'2px',btnRadius:'2px',pixelated:true
-  },
-  rainbow:{
-    name:'经典转盘',
-    bg:'#fafafa',text:'#222',dim:'rgba(34,34,34,.55)',
-    panel:'rgba(255,255,255,.92)',border:'#ddd',
-    accent:'#ff6b35',accent2:'#f7b32b',
-    wheel:['#FF0000','#FF7F00','#FFFF00','#00FF00','#0000FF','#4B0082','#9400D3','#FF1493','#00CED1','#FFD700','#32CD32','#FF4500'],
-    cardRadius:'12px',btnRadius:'50px',pixelated:false
-  },
-  minimal:{
-    name:'极简黑白',
-    bg:'#fefefe',text:'#1a1a1a',dim:'rgba(26,26,26,.5)',
-    panel:'rgba(255,255,255,.85)',border:'#e0e0e0',
-    accent:'#2a2a2a',accent2:'#6a6a6a',
-    wheel:['#000','#1a1a1a','#333','#4d4d4d','#666','#808080','#999','#b3b3b3','#ccc','#e6e6e6','#f5f5f5','#fff'],
-    cardRadius:'0',btnRadius:'0',pixelated:false
-  },
-  neon:{
-    name:'赛博霓虹',
-    bg:'#0a0e27',text:'#e8e6ff',dim:'rgba(232,230,255,.55)',
-    panel:'rgba(20,25,60,.85)',border:'rgba(0,255,255,.4)',
-    accent:'#00ffd5',accent2:'#ff2fb3',
-    wheel:['#ff2fb3','#00ffd5','#7b2fff','#ffd60a','#00b8ff','#ff5c2f','#b300ff','#00ff9f','#ff2f8f','#00d5ff','#9d4dff','#39ff14'],
-    cardRadius:'8px',btnRadius:'6px',pixelated:false
-  }
+/* ===== 主题系统：外部文件动态加载 =====
+   主题文件放在 themes/ 目录，每个文件一个主题，
+   在 window.__THEMES__ 上注册自己。
+   新增主题：新建 themes/theme-xxx.js + themes.json 加一行即可，
+   无需改动本文件。 */
+window.__THEMES__ = window.__THEMES__ || {};
+/* 兜底主题：即使 themes.json 加载失败，至少极简黑白可用 */
+window.__THEMES__.minimal = {
+  name:'极简黑白',
+  bg:'#fefefe',text:'#1a1a1a',dim:'rgba(26,26,26,.5)',
+  panel:'rgba(255,255,255,.85)',border:'#e0e0e0',
+  accent:'#2a2a2a',accent2:'#6a6a6a',
+  wheel:['#000','#1a1a1a','#333','#4d4d4d','#666','#808080','#999','#b3b3b3','#ccc','#e6e6e6','#f5f5f5','#fff'],
+  cardRadius:'0',btnRadius:'0',pixelated:false,
+  fontFamily:'sans-serif'
 };
-var themeKeys=Object.keys(THEMES);
+var THEMES=window.__THEMES__;
+var themeKeys=[];
 
-var currentTheme='rainbow',stage='idle',rotation=0,spinning=false,spinRound=0,picked=null,items=ACTIVITIES,timeSpinRound=0;
-/* 记录三次主转盘分别转到的活动，用于最终三选一 */
-var spinResults=[];
+/* ===== 状态 ===== */
+var currentTheme='minimal',stage='idle',rotation=0,spinning=false,spinRound=0,picked=null,items=ACTIVITIES,timeSpinRound=0;
+var spinResults=[];   /* 三次主转盘结果，用于三选一 */
+var timeResults=[];   /* 三次时间转盘结果，用于三选一 */
 
 function $(id){return document.getElementById(id);}
 var headline=$('headline'),hint=$('hint'),wheelWrap=$('wheelWrap'),canvas=$('wheel'),pointer=$('pointer'),
@@ -248,8 +233,10 @@ function hideCard(){card.classList.add('hidden');}
 function showFlash(t){flashText.textContent=t;flash.classList.add('show');setTimeout(function(){flash.classList.remove('show');},1400);}
 function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;}
 
+/* ===== 主题应用 ===== */
 function applyTheme(k,save){
-  var t=THEMES[k];currentTheme=k;
+  var t=THEMES[k];if(!t)return;
+  currentTheme=k;
   var r=document.documentElement;
   r.style.setProperty('--bg',t.bg);
   r.style.setProperty('--text',t.text);
@@ -260,13 +247,9 @@ function applyTheme(k,save){
   r.style.setProperty('--accent2',t.accent2);
   card.style.borderRadius=t.cardRadius;
   Array.from(document.querySelectorAll('.btn')).forEach(function(b){b.style.borderRadius=t.btnRadius;});
-  if(t.pixelated){
-    document.body.style.fontFamily='"Courier New",monospace';
-    document.body.style.imageRendering='pixelated';
-  }else{
-    document.body.style.fontFamily='sans-serif';
-    document.body.style.imageRendering='auto';
-  }
+  document.body.style.fontFamily=t.fontFamily||'sans-serif';
+  if(t.pixelated){document.body.style.imageRendering='pixelated';}
+  else{document.body.style.imageRendering='auto';}
   if(save){try{localStorage.setItem('wheel-theme',k);}catch(e){}}
   updateThemeGrid();
   drawWheel();
@@ -278,7 +261,7 @@ function buildThemeGrid(){
     item.className='theme-item';
     item.dataset.key=k;
     var grad='';
-    if(t.wheel.length>=3){
+    if(t.wheel&&t.wheel.length>=3){
       grad='linear-gradient(135deg,'+t.wheel[0]+','+t.wheel[Math.floor(t.wheel.length/2)]+','+t.wheel[t.wheel.length-1]+')';
     }else{
       grad=t.bg;
@@ -287,6 +270,7 @@ function buildThemeGrid(){
     item.addEventListener('click',function(){applyTheme(k,true);});
     themeGrid.appendChild(item);
   });
+  updateThemeGrid();
 }
 function updateThemeGrid(){
   themeGrid.querySelectorAll('.theme-item').forEach(function(el){
@@ -294,6 +278,36 @@ function updateThemeGrid(){
   });
 }
 
+/* ===== 动态加载主题文件 ===== */
+function loadThemes(){
+  return fetch('./themes.json')
+    .then(function(res){if(!res.ok)throw 0;return res.json();})
+    .then(function(data){
+      var chain=Promise.resolve();
+      (data.files||[]).forEach(function(f){
+        chain=chain.then(function(){
+          return new Promise(function(res){
+            var s=document.createElement('script');
+            s.src='./'+f;
+            s.onload=res;
+            s.onerror=res;
+            document.head.appendChild(s);
+          });
+        });
+      });
+      return chain;
+    })
+    .catch(function(){})
+    .then(function(){
+      themeKeys=Object.keys(THEMES);
+      buildThemeGrid();
+      try{currentTheme=localStorage.getItem('wheel-theme')||'minimal';}catch(e){}
+      if(!THEMES[currentTheme])currentTheme='minimal';
+      applyTheme(currentTheme,false);
+    });
+}
+
+/* ===== 转盘绘制 ===== */
 function drawWheel(){
   var w=wheelWrap.clientWidth,dpr=window.devicePixelRatio||1;
   canvas.width=w*dpr;canvas.height=w*dpr;
@@ -330,6 +344,7 @@ function spinTo(targetIndex,list,onDone){
   requestAnimationFrame(frame);
 }
 
+/* ===== 主转盘流程 ===== */
 function startMainSpin(){
   if(spinning)return;
   stage='mainSpin';items=ACTIVITIES;hideCard();
@@ -358,7 +373,6 @@ function showMainResult(a){
 function showThree(){
   stage='three';setHeadline('必须三选一');setHint('从三次转到的里面选一个');
   cardTag.textContent='三选一';cardTitle.textContent='三次转到的';cardActions.innerHTML='';
-  /* 三选一 = 前三次转到的活动（每次随机，不固定） */
   shuffle(spinResults);
   spinResults.forEach(function(a){
     var b=document.createElement('button');b.className='btn ghost';b.textContent=a.name;
@@ -366,52 +380,69 @@ function showThree(){
   });
   showCard();
 }
+
+/* ===== 时间转盘流程（与主转盘一致：2次重转，第3次三选一） ===== */
 function startTimeSpin(a){
-  picked={activity:a,time:null,bg:null};stage='timeSpin';items=TIMES;timeSpinRound=0;hideCard();
+  picked={activity:a,time:null,bg:null};
+  stage='timeSpin';items=TIMES;timeSpinRound=0;timeResults=[];hideCard();
   setHeadline('做多久？');setHint('时间交给命运');
   var idx=Math.floor(Math.random()*TIMES.length);
   spinTo(idx,TIMES,function(i){
     timeSpinRound++;
-    showTimeResult(i);
+    timeResults.push(TIMES[i]);
+    showTimeResult();
   });
 }
-function showTimeResult(i){
+function showTimeResult(){
   var left=3-timeSpinRound;
-  if(timeSpinRound>=3){
-    picked.time=TIMES[i];
-    showFlash(TIMES[i]);
+  if(timeSpinRound>=3){showTimeThree();return;}
+  var cur=timeResults[timeResults.length-1];
+  setHeadline('时间: '+cur);
+  setHint(left>0?'不满意可以再转 '+left+' 次':'就这个了');
+  cardTag.textContent='时间决定';cardTitle.textContent=cur;cardActions.innerHTML='';
+  var ok=document.createElement('button');ok.className='btn';ok.textContent='就这个 ✓';
+  ok.addEventListener('click',function(){
+    picked.time=cur;
+    hideCard();showFlash(cur);
     setTimeout(function(){
       if(picked.activity.bg&&picked.activity.bg.length)startBgSpin();else goTask();
     },1500);
-  }else{
-    setHeadline('时间: '+TIMES[i]);
-    setHint(left>0?'不满意可以再转 '+left+' 次':'就这个了');
-    cardTag.textContent='时间决定';cardTitle.textContent=TIMES[i];cardActions.innerHTML='';
-    var ok=document.createElement('button');ok.className='btn';ok.textContent='就这个 ✓';
-    ok.addEventListener('click',function(){
-      picked.time=TIMES[i];
-      showFlash(TIMES[i]);
+  });
+  cardActions.appendChild(ok);
+  if(left>0){
+    var ag=document.createElement('button');ag.className='btn ghost';ag.textContent='再转一次（剩 '+left+' 次）';
+    ag.addEventListener('click',function(){
+      hideCard();setHeadline('做多久？');setHint('时间交给命运');
+      var idx=Math.floor(Math.random()*TIMES.length);
+      spinTo(idx,TIMES,function(j){
+        timeSpinRound++;
+        timeResults.push(TIMES[j]);
+        showTimeResult();
+      });
+    });
+    cardActions.appendChild(ag);
+  }
+  showCard();
+}
+function showTimeThree(){
+  stage='threeTime';setHeadline('时间三选一');setHint('从三次转到的里面选一个');
+  cardTag.textContent='时间决定';cardTitle.textContent='三次转到的';cardActions.innerHTML='';
+  shuffle(timeResults);
+  timeResults.forEach(function(t){
+    var b=document.createElement('button');b.className='btn ghost';b.textContent=t;
+    b.addEventListener('click',function(){
+      picked.time=t;
+      hideCard();showFlash(t);
       setTimeout(function(){
         if(picked.activity.bg&&picked.activity.bg.length)startBgSpin();else goTask();
       },1500);
     });
-    cardActions.appendChild(ok);
-    if(left>0){
-      var ag=document.createElement('button');ag.className='btn ghost';ag.textContent='再转一次（剩 '+left+' 次）';
-      ag.addEventListener('click',function(){
-        hideCard();
-        setHeadline('做多久？');setHint('时间交给命运');
-        var idx=Math.floor(Math.random()*TIMES.length);
-        spinTo(idx,TIMES,function(j){
-          timeSpinRound++;
-          showTimeResult(j);
-        });
-      });
-      cardActions.appendChild(ag);
-    }
-    showCard();
-  }
+    cardActions.appendChild(b);
+  });
+  showCard();
 }
+
+/* ===== 背景转盘 ===== */
 function startBgSpin(){
   stage='bgSpin';hideCard();
   var opts=picked.activity.bg;items=opts;
@@ -421,6 +452,8 @@ function startBgSpin(){
     picked.bg=opts[i];showFlash(opts[i]);setTimeout(goTask,1500);
   });
 }
+
+/* ===== 任务页 ===== */
 function goTask(){
   stage='task';taskName.textContent=picked.activity.name;
   var parts=[picked.time];if(picked.bg)parts.push(picked.bg);
@@ -436,11 +469,12 @@ function completeTask(){
 }
 function resetAll(){
   stage='idle';spinRound=0;timeSpinRound=0;picked=null;items=ACTIVITIES;
-  spinResults=[];
+  spinResults=[];timeResults=[];
   taskView.classList.add('hidden');hideCard();
   setHeadline('今天做什么？');setHint('点击转盘开始');drawWheel();
 }
 
+/* ===== 事件 ===== */
 canvas.addEventListener('click',function(){if(stage==='idle')startMainSpin();});
 gear.addEventListener('click',function(){settings.classList.add('open');});
 function closeSetting(){settings.classList.remove('open');}
@@ -449,15 +483,15 @@ settings.addEventListener('click',function(e){if(e.target===settings)closeSettin
 taskName.addEventListener('click',completeTask);
 window.addEventListener('resize',function(){if(!spinning)drawWheel();});
 
-try{currentTheme=localStorage.getItem('wheel-theme')||'rainbow';if(!THEMES[currentTheme])currentTheme='rainbow';}catch(e){}
-buildThemeGrid();applyTheme(currentTheme,false);
-
 /* PWA: register service worker with relative scope */
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(function(){});
   });
 }
+
+/* ===== 启动：先加载主题，再初始化 ===== */
+loadThemes();
 })();
 </script>
 </body>
