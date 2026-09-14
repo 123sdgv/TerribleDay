@@ -180,18 +180,20 @@ h1{font-size:clamp(22px,5vw,36px);font-weight:700;text-align:center;transition:a
 
 /* ===== 活动与时间数据 ===== */
 var ACTIVITIES=[
-  {name:'学习HTML',bg:null},
-  {name:'看硬核知识',bg:null},
-  {name:'看电影动漫解说',bg:null},
-  {name:'画画',bg:['听歌','听视频','安静画']},
-  {name:'数字油画手工',bg:['听歌','听视频','安静做']},
-  {name:'出门溜达',bg:['听歌','听书','安静走']},
-  {name:'做家务',bg:['听歌','听书','听视频','安静做']},
-  {name:'出门夜跑',bg:['听歌','安静跑']},
-  {name:'出门购物',bg:['听歌','安静逛']},
-  {name:'和ChatGPT聊项目书',bg:null},
-  {name:'找AI研究OC',bg:null},
-  {name:'写小说',bg:null}
+  {name:'去图书馆',bg:null},
+  {name:'html课程',bg:null},
+  {name:'背单词',bg:null},
+  {name:'四级英语',bg:null},
+  {name:'看初级课程',bg:null},
+  {name:'学习计算机一级',bg:null},
+  {name:'画画',bg:null},
+  {name:'写小说',bg:null},
+  {name:'打扫卫生',bg:null},
+  {name:'整理/洗衣服',bg:null},
+  {name:'研究OC',bg:null},
+  {name:'找ChatGPT规划未来',bg:null},
+  {name:'项目书',bg:null},
+  {name:'专业课相关',bg:null}
 ];
 var TIMES=['15分钟','30分钟','45分钟','1小时','1.5小时','2小时'];
 
@@ -383,7 +385,7 @@ function showThree(){
 
 /* ===== 时间转盘流程（与主转盘一致：2次重转，第3次三选一） ===== */
 function startTimeSpin(a){
-  picked={activity:a,time:null,bg:null};
+  picked={activity:a,time:null};
   stage='timeSpin';items=TIMES;timeSpinRound=0;timeResults=[];hideCard();
   setHeadline('做多久？');setHint('时间交给命运');
   var idx=Math.floor(Math.random()*TIMES.length);
@@ -404,9 +406,7 @@ function showTimeResult(){
   ok.addEventListener('click',function(){
     picked.time=cur;
     hideCard();showFlash(cur);
-    setTimeout(function(){
-      if(picked.activity.bg&&picked.activity.bg.length)startBgSpin();else goTask();
-    },1500);
+    setTimeout(goTask,1500);
   });
   cardActions.appendChild(ok);
   if(left>0){
@@ -433,31 +433,17 @@ function showTimeThree(){
     b.addEventListener('click',function(){
       picked.time=t;
       hideCard();showFlash(t);
-      setTimeout(function(){
-        if(picked.activity.bg&&picked.activity.bg.length)startBgSpin();else goTask();
-      },1500);
+      setTimeout(goTask,1500);
     });
     cardActions.appendChild(b);
   });
   showCard();
 }
 
-/* ===== 背景转盘 ===== */
-function startBgSpin(){
-  stage='bgSpin';hideCard();
-  var opts=picked.activity.bg;items=opts;
-  setHeadline('配点什么？');setHint('背景声音交给命运');
-  var idx=Math.floor(Math.random()*opts.length);
-  spinTo(idx,opts,function(i){
-    picked.bg=opts[i];showFlash(opts[i]);setTimeout(goTask,1500);
-  });
-}
-
 /* ===== 任务页 ===== */
 function goTask(){
   stage='task';taskName.textContent=picked.activity.name;
-  var parts=[picked.time];if(picked.bg)parts.push(picked.bg);
-  taskMeta.textContent=parts.join(' · ');
+  taskMeta.textContent=picked.time;
   taskHint.textContent='点击文字完成';
   taskView.classList.remove('hidden');taskView.classList.remove('done');
   setHeadline('去完成吧');setHint('做完记得回来点一下');
