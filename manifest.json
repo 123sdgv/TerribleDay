@@ -1,16 +1,21 @@
 {
-  "name": "今天做什么",
-  "short_name": "轮盘",
-  "description": "随机决定你今天该做什么的极简轮盘",
+  "name": "拾碎 · 今天做什么",
+  "short_name": "拾碎",
+  "description": "把零碎时间变成微小的充实感",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0a0a0c",
-  "theme_color": "#0a0a0c",
+  "background_color": "#141413",
+  "theme_color": "#F7F6F2",
   "orientation": "portrait",
   "icons": [
-    {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ],
-  "categories":["lifestyle","productivity"],
-  "lang":"zh-CN"
+  "categories": ["lifestyle", "productivity"],
+  "lang": "zh-CN"
 }
