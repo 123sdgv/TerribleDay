@@ -38,16 +38,18 @@ body{
   padding:max(env(safe-area-inset-top),24px) 20px max(env(safe-area-inset-bottom),24px);
 }
 
-/* 顶部场景切换栏 */
+/* 顶部场景切换栏 - 优化为支持两行排列 */
 .top-bar{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;margin-top:8px}
 #modes{
-  display: inline-flex;background:rgba(0,0,0,.04);padding:4px;border-radius:99px;
-  border:1px solid var(--border);gap:4px;
+  display: flex; flex-wrap: wrap; justify-content: center;
+  background:rgba(0,0,0,.04);padding:4px;border-radius:18px;
+  border:1px solid var(--border);gap:4px; max-width: 300px;
 }
 .mode-btn{
   border:none;background:transparent;color:var(--dim);
-  padding:7px 15px;border-radius:99px;font-size:12px;font-weight:600;
+  padding:8px 14px;border-radius:14px;font-size:12px;font-weight:600;
   letter-spacing:.05em;cursor:pointer;transition:all .25s;
+  flex: 1 1 45%; text-align: center;
 }
 .mode-btn.active{
   background:var(--panel);color:var(--text);
@@ -56,7 +58,7 @@ body{
 
 h1{
   font-family:"Songti SC","Noto Serif SC","STSong",serif;
-  font-size:clamp(22px,5.5vw,30px);font-weight:700;letter-spacing:.08em;
+  font-size:clamp(20px,5vw,28px);font-weight:700;letter-spacing:.08em;
   text-align:center;transition:all .3s;
 }
 #hint{font-size:12px;color:var(--dim);letter-spacing:.12em;text-align:center;min-height:18px}
@@ -87,7 +89,7 @@ h1{
 }
 @keyframes cardIn{from{opacity:0;transform:scale(.92) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 
-#cardTag{font-size:10px;letter-spacing:.2em;color:var(--dim);padding:3px 10px;border:1px solid var(--border);border-radius:99px}
+#cardTag{font-size:10px;letter-spacing:.2em;color:var(--dim);padding:3px 10px;border:1px solid var(--border);border-radius:99px;text-align:center;}
 #cardTitle{
   font-family:"Songti SC","Noto Serif SC",serif;
   font-size:clamp(16px,4.2vw,20px);font-weight:700;text-align:center;
@@ -184,6 +186,7 @@ h1{
     <div id="modes">
       <button class="mode-btn active" data-mode="quick">随地 10m</button>
       <button class="mode-btn" data-mode="dorm">宿舍 30m+</button>
+      <button class="mode-btn" data-mode="library">图书馆 30m</button>
       <button class="mode-btn" data-mode="lazy">不想动</button>
     </div>
     <h1 id="headline">拾起一块碎片</h1>
@@ -216,7 +219,7 @@ h1{
 (function(){
 'use strict';
 
-/* ===== 场景与零门槛微任务池 ===== */
+/* ===== 场景与零门槛微任务池（深度扩充版） ===== */
 var MODES = {
   quick: {
     label: '随地 10m',
@@ -224,22 +227,24 @@ var MODES = {
       { name: '涂涂画画', tasks: [
         '在 iPad 或纸上画满 5 个方格的控笔排线',
         '随便挑个顺眼的局部（眼睛或手）速涂 5 分钟',
+        '给构思的 OC 或者 TRPG 角色随手画个发型草图',
         '不看参考，凭感觉乱画一个小表情或小物件'
       ]},
       { name: '外语磨耳', tasks: [
         '打开多邻国，毫无压力连闯 2 小关',
-        '找 AI 随便用英语闲聊 5 句日常，不管语法对错',
-        '顺手翻 5 个生词混个眼熟，看完立刻合上'
+        '只背 10 个四级高频词汇，多一个都不背',
+        '找 AI 用英语闲聊 5 句日常，完全不管语法对错',
+        '听一首全英文歌，不看歌词盲猜几句大意'
       ]},
       { name: '脑洞/OC', tasks: [
-        '给你的 OC 补充一个怪癖或随身带的小物件',
-        '写下脑子里突然闪过的三句对话，不用管上下文',
-        '为小说里的某个场景添一句环境或天气描写'
+        '给你的 OC 补充一个奇怪的性格怪癖或随身小物件',
+        '构思一段美式高中背景下的三人日常对话片段',
+        '写下脑子里突然闪过的三句对话，不用管上下文'
       ]},
       { name: '骗自己学3分钟', tasks: [
-        '打开会计或计算机一级，只看懂 1 个概念就允许关掉',
-        '点开课程视频看满 3 分钟，时间一到随时可退',
-        '翻开专业课课本，只细看一页上的插图或结构'
+        '翻开《建筑史》或课本，只细看一页上的插图或年代',
+        '打开计算机一级，只看懂 1 个概念就允许关掉',
+        '点开课程视频看满 3 分钟，时间一到随时可退'
       ]},
       { name: '数字大扫除', tasks: [
         '去手机相册里顺手删掉 10 张没用的截图或废片',
@@ -247,53 +252,92 @@ var MODES = {
         '清理掉浏览器里一直没关的 3 个旧标签页'
       ]},
       { name: '随手记一笔', tasks: [
-        '用三句话记下今天发生的一个小细节',
+        '打开 Google Tasks，列一下明天的几节课或小计划',
         '边听一首歌，边在纸上随便写写画画直到歌停',
-        '记下最近想尝试但还没做的一件小事'
+        '用三句话记下今天发生的一个小细节'
+      ]}
+    ]
+  },
+  library: {
+    label: '图书馆 30m',
+    categories: [
+      { name: '外语突击', tasks: [
+        '沉下心只做一篇四级阅读理解，做完立马对答案收工',
+        '听一段半小时的四级听力磨耳朵，顺手做做笔记',
+        '整理一下最近积累的生词本，复习前面 3 页'
+      ]},
+      { name: '专业课轻啃', tasks: [
+        '翻开《建筑史》，不求背诵，只当课外书看懂一个章节或一张图纸',
+        '把语文课或专业课的近期笔记稍微梳理排版一下',
+        '心无旁骛看 25 分钟专业课，看完立刻奖励自己休息'
+      ]},
+      { name: '画师进阶', tasks: [
+        '戴上耳机，在 iPad 上专心画半个小时的 TRPG 人物立绘或设计图',
+        '找一两个画师的优秀作品，临摹研究一下他们的线条和光影',
+        '花半小时补全之前画了一半搁置的草稿'
+      ]},
+      { name: '沉浸码字', tasks: [
+        '构思一段 OC 的故事，完善一下复杂的三人角色关系推演',
+        '写一段带有美式高中感的小说片段，写乱了也没关系',
+        '把之前随意写在备忘录里的脑洞扩写成几百字的完整段落'
+      ]},
+      { name: '影音充电', tasks: [
+        '找一个深度电影解析（比如《燃冬》等作品的拉片），戴耳机看半小时',
+        '挑一集想看了很久的动漫，心安理得地把它看完',
+        '看一个半小时左右的优质知识类或艺术类纪录片'
+      ]},
+      { name: '数字桌面整理', tasks: [
+        '把笔记本电脑桌面上乱七八糟的文档和截图分门别类建文件夹',
+        '整理一下 iPad 里画图软件的图层和文件命名',
+        '规划一下本周的 Google Tasks 进度条'
       ]}
     ]
   },
   dorm: {
     label: '宿舍 30m+',
     categories: [
-      { name: '十字绣时光', tasks: [
+      { name: '十字绣/布艺', tasks: [
         '放首喜欢的歌，安安静静绣完一小块同色区域',
-        '穿好线，专心推进 20 分钟十字绣'
+        '穿好线，专心推进 20 分钟不织布或十字绣',
+        '整理一下绣线和布料，挑好下一次要做的颜色'
       ]},
-      { name: '手作/编织', tasks: [
-        '把不织布或手链的线材剪好、拼出雏形（不强求做完）',
-        '动手推进一段编手链或小手工，做累了随时收摊'
+      { name: '手工/纸艺', tasks: [
+        '拿出荷兰白卡纸，剪裁折叠试着做个小手工模型或底座',
+        '动手推进一段编手链，做累了随时可以收摊',
+        '把手工工具和材料摊开，做好前期的打底工作'
       ]},
       { name: '手帐备料', tasks: [
         '不拼贴整页，今天只负责剪好几个手帐素材备用',
         '构思一页手帐的排版草图，或者只贴好背景打底',
         '挑几张喜欢的贴纸和纸胶带，搭配出下一期的色系'
       ]},
-      { name: '角落微清爽', tasks: [
+      { name: '宿舍微清爽', tasks: [
         '只把书桌右手边巴掌大的一块地方彻底清空擦净',
-        '顺手洗掉两件小衣服或收拾一下床头角落',
+        '顺手洗掉两件小衣服，或者把水杯彻底刷干净',
         '把桌上的画具、手作工具或线团归拢进盒子里'
       ]},
       { name: '沉浸写画', tasks: [
-        '边看动漫或听歌，在 iPad 上安心画半小时线条或草稿',
-        '顺着之前的剧情，往下推演一段小说或人物关系'
+        '边看动漫，边在 iPad 上安心练半小时控笔排线',
+        '顺着之前的剧情，往下推演一段小说或人物关系',
+        '随心所欲在纸上涂鸦，释放一天的压力'
       ]},
-      { name: '啃一小块硬骨头', tasks: [
-        '挑一节最简短的 HTML、计算机或初级课看完',
-        '心无旁骛看 25 分钟专业课或项目书，看完立刻奖励自己休息'
+      { name: '啃一块硬骨头', tasks: [
+        '挑一节最简短的 HTML、计算机或初级课看一会',
+        '花 20 分钟稍微理一理项目书的思路和提纲'
       ]}
     ]
   },
   lazy: {
     label: '不想动',
     categories: [
-      { name: '纯听两首歌', tasks: [
-        '闭上眼睛，什么都不干，完整听完两首喜欢的歌',
-        '挑一首没听过的纯音乐或老歌，放空发呆 5 分钟'
+      { name: '纯发呆/听歌', tasks: [
+        '闭眼听歌，顺便想想明天早上食堂去吃茄子饼、包子还是小馄饨',
+        '闭上眼睛什么都不干，完整听完两首喜欢的歌',
+        '挑一首没听过的纯音乐，放空发呆 5 分钟'
       ]},
       { name: '找AI瞎聊', tasks: [
-        '找 AI 吐槽一下今天遇到的槽心事或无聊瞬间',
-        '跟 AI 一起脑暴一个离谱又好玩的架空设定'
+        '找我（咪咪）吐槽一下今天遇到的槽心事或无聊瞬间',
+        '跟我一起脑暴一个离谱又好玩的架空设定'
       ]},
       { name: '翻看旧作品', tasks: [
         '翻翻自己以前画过的图或写过的片段，夸自己两句',
