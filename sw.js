@@ -1,6 +1,6 @@
-// Service Worker v4 - 网络优先，确保总是拿到最新版
-const CACHE_NAME = 'terrible-day-v4';
-const APP_SHELL = ['./', './index.html', './manifest.json', './icon.svg', './themes.json', './themes/theme-minimal.js'];
+// Service Worker v5 - 网络优先，确保总是拿到最新版
+const CACHE_NAME = 'terrible-day-v5';
+const APP_SHELL = ['./', './index.html', './manifest.json', './icon.svg', './themes.json', './themes/theme-minimal.js', './themes/theme-moon.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
