@@ -1,21 +1,17 @@
 {
-  "name": "拾碎 · 今天做什么",
-  "short_name": "拾碎",
-  "description": "把零碎时间变成微小的充实感",
+  "name": "今天做什么",
+  "short_name": "今天做什么",
+  "description": "随机抽一件没压力的小事，然后陪你做完",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#141413",
-  "theme_color": "#F7F6F2",
   "orientation": "portrait",
+  "background_color": "#1B1433",
+  "theme_color": "#1B1433",
+  "lang": "zh-CN",
   "icons": [
-    {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ],
-  "categories": ["lifestyle", "productivity"],
-  "lang": "zh-CN"
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
 }

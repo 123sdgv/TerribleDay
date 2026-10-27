@@ -1,30 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <!-- 深炭黑微暖底色，适配手机桌面圆角裁切 -->
-  <rect width="512" height="512" fill="#141413"/>
-  
-  <!-- 外层极细刻度环 -->
-  <circle cx="256" cy="256" r="176" fill="none" stroke="#F4F3EF" stroke-width="3" stroke-opacity="0.18"/>
-  <circle cx="256" cy="256" r="142" fill="none" stroke="#F4F3EF" stroke-width="1.5" stroke-dasharray="6 10" stroke-opacity="0.35"/>
-  
-  <!-- 十字准星暗线 -->
-  <line x1="256" y1="60" x2="256" y2="100" stroke="#F4F3EF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.4"/>
-  <line x1="256" y1="412" x2="256" y2="452" stroke="#F4F3EF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.2"/>
-  <line x1="60" y1="256" x2="100" y2="256" stroke="#F4F3EF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.2"/>
-  <line x1="412" y1="256" x2="452" y2="256" stroke="#F4F3EF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.2"/>
-
-  <!-- 命运扇区高光（右上象限微弱点亮） -->
-  <path d="M256,256 L256,80 A176,176 0 0,1 408.4,168 Z" fill="#F4F3EF" fill-opacity="0.07"/>
-
-  <!-- 核心转盘圆环 -->
-  <circle cx="256" cy="256" r="96" fill="none" stroke="#F4F3EF" stroke-width="6"/>
-  
-  <!-- 朱砂红命运指针（指向右上角微倾，打破死板对称） -->
-  <g transform="rotate(30 256 256)">
-    <line x1="256" y1="296" x2="256" y2="104" stroke="#E04F3E" stroke-width="8" stroke-linecap="round"/>
-    <polygon points="256,84 245,112 267,112" fill="#E04F3E"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#FFFFFF"/>
+  <g fill="none" stroke="#111111" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="282" r="128"/>
+    <path d="M256 282V200M256 282l58 40"/>
+    <path d="M176 392l-30 42M336 392l30 42"/>
+    <path d="M256 154v-24M230 128h52"/>
   </g>
-
-  <!-- 中心四角星芒与轴心 -->
-  <circle cx="256" cy="256" r="16" fill="#141413" stroke="#F4F3EF" stroke-width="5"/>
-  <circle cx="256" cy="256" r="5" fill="#E04F3E"/>
+  <g fill="#111111">
+    <path d="M112 196A78 78 0 0 1 214 104Z"/>
+    <path d="M400 196A78 78 0 0 0 298 104Z"/>
+    <circle cx="256" cy="282" r="14"/>
+  </g>
 </svg>

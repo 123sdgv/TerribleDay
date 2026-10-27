@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">
+  <defs>
+    <radialGradient id="bg" cx=".5" cy=".45" r=".7">
+      <stop offset="0" stop-color="#3A2A74"/>
+      <stop offset="1" stop-color="#1B1433"/>
+    </radialGradient>
+    <radialGradient id="card" cx=".5" cy=".46" r=".6">
+      <stop offset="0" stop-color="#4D3A95"/>
+      <stop offset="1" stop-color="#241A4E"/>
+    </radialGradient>
+  </defs>
+  <rect width="100" height="120" fill="url(#bg)"/>
+  <g transform="translate(26 13)">
+    <rect x="0" y="0" width="48" height="77" rx="4" fill="url(#card)"/>
+    <g fill="none" stroke="#E9CF92" stroke-linecap="round">
+      <rect x="1.5" y="1.5" width="45" height="74" rx="3.5" stroke-width=".9"/>
+      <rect x="4.2" y="4.2" width="39.6" height="68.6" rx="2" stroke-width=".5" opacity=".55"/>
+      <circle cx="24" cy="38.5" r="10" stroke-width=".8"/>
+    </g>
+    <path d="M26.8 32.6a6.4 6.4 0 1 0 0 11.8a5.9 5.9 0 1 1 0-11.8z" fill="#E9CF92"/>
+    <path d="M24 12l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1zM24 58l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1z" fill="#E9CF92"/>
+  </g>
+  <circle cx="14" cy="22" r=".9" fill="#FFF6E0" opacity=".8"/>
+  <circle cx="86" cy="34" r=".7" fill="#FFF6E0" opacity=".7"/>
+  <circle cx="12" cy="96" r=".7" fill="#FFF6E0" opacity=".6"/>
+  <circle cx="88" cy="104" r=".9" fill="#FFF6E0" opacity=".8"/>
+</svg>
