@@ -1,9 +1,17 @@
 /* 切换主题：换样式表、清掉旧主题、挂上新主题；以及右侧的选主题弹窗。
-   按「不保存数据」的约定，不记住选过的主题，每次打开都是第一个。 */
+   会记住上次选的主题（只存一个主题名）。 */
 import { THEMES } from '../themes/index.js';
+
+const KEY = 'td-theme';
+const cssOf = id => `themes/${id}/style.css`;
+const previewOf = id => `themes/${id}/preview.svg`;
 
 let current = null;
 let cleanup = null;
+
+export function savedTheme() {
+  try { return localStorage.getItem(KEY); } catch (e) { return null; }
+}
 
 function loadCss(href) {
   const old = document.getElementById('theme-css');
@@ -24,11 +32,14 @@ function loadCss(href) {
 export async function useTheme(id) {
   const theme = THEMES.find(t => t.id === id) || THEMES[0];
   if (theme.id === current) return;
-  const [mod] = await Promise.all([theme.load(), loadCss(theme.css)]);
+  const [mod] = await Promise.all([theme.load(), loadCss(cssOf(theme.id))]);
   if (cleanup) cleanup();
   const root = document.getElementById('app');
   root.replaceChildren();
   current = theme.id;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && theme.color) meta.setAttribute('content', theme.color);
+  try { localStorage.setItem(KEY, theme.id); } catch (e) {}
   cleanup = mod.mount(root, { openPicker }) || null;
 }
 
@@ -50,7 +61,7 @@ export function openPicker() {
     item.setAttribute('aria-current', t.id === current);
     const sw = document.createElement('span');
     sw.className = 'sw';
-    if (t.preview) sw.style.backgroundImage = `url("${t.preview}")`;
+    sw.style.backgroundImage = `url("${previewOf(t.id)}")`;
     const name = document.createElement('span');
     name.textContent = t.name;
     item.append(sw, name);

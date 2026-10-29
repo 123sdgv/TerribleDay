@@ -1,8 +1,8 @@
-/* 入口：挂上默认主题 */
+/* 入口：挂上上次用的主题，没有就用第一个 */
 import { THEMES } from '../themes/index.js';
-import { useTheme } from './switcher.js';
+import { useTheme, savedTheme } from './switcher.js';
 
-useTheme(THEMES[0].id);
+useTheme(savedTheme() || THEMES[0].id);
 
 /* 旧版本装过 service worker 和缓存，清掉，免得手机上一直拿到旧页面 */
 if ('serviceWorker' in navigator) {

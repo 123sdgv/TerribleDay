@@ -114,6 +114,8 @@ export function clearActive() {
 
 /* 声音：iPhone 要在第一次点击里解锁 */
 let ac = null;
+/* 给主题做自己的音效用；还没解锁时是 null */
+export const audio = () => ac;
 export function unlockAudio() {
   try {
     if (!ac) {

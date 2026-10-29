@@ -14,8 +14,15 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="stylesheet" href="core/base.css">
-<!-- 默认主题的样式先放这里，打开时不会闪一下；换主题时会被替换 -->
-<link rel="stylesheet" href="themes/tarot/style.css" id="theme-css">
+<!-- 先放上次用的主题的样式，打开时不会闪一下；换主题时会被替换 -->
+<script>
+  (function () {
+    var id = 'tarot';
+    try { id = localStorage.getItem('td-theme') || id; } catch (e) {}
+    if (!/^[a-z0-9-]+$/.test(id)) id = 'tarot';
+    document.write('<link rel="stylesheet" id="theme-css" href="themes/' + id + '/style.css">');
+  })();
+</script>
 <script type="module" src="core/main.js"></script>
 </head>
 <body>
