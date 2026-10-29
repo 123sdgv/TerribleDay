@@ -15,6 +15,8 @@
   --dw: clamp(58px, 19vw, 78px);
   --dh: calc(var(--dw) * 1.4);
   --tab: clamp(44px, 12.5vw, 54px);
+  --pw: clamp(92px, 30vw, 128px);
+  --spot: clamp(84px, 15vh, 132px);
 
   /* 选主题弹窗（结构在 core/base.css） */
   --picker-dim: rgba(0, 0, 0, .45);
@@ -40,13 +42,6 @@ body { font-family: var(--sans); }
   content: ""; position: absolute; inset: 0; opacity: .55; mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-/* 桌布上印的金色弧线 */
-.felt::after {
-  content: ""; position: absolute; left: -25%; right: -25%; top: 57%; height: 80%; border-radius: 50%;
-  border: 1.5px solid rgba(217, 178, 95, .3);
-  outline: 1px solid rgba(217, 178, 95, .14); outline-offset: 6px;
-}
-
 /* ---------- 牌桌 ---------- */
 .table {
   position: relative; z-index: 1; height: 100%; max-width: 460px; margin: 0 auto;
@@ -82,28 +77,28 @@ body { font-family: var(--sans); }
 .chip:active { transform: translateY(-50%) rotate(60deg) scale(.94); }
 .chip:disabled { opacity: .45; }
 
-/* ---------- 牌位 ---------- */
-/* 牌位和牌堆作为一组，在顶栏下面的空间里居中 */
-.reading { flex: none; margin-top: auto; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; }
-.spread { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: calc(24vh * .714 * 3 + 20px); }
-.slot { position: relative; aspect-ratio: 5 / 7; border-radius: 10px; border: 1.5px dashed rgba(217, 178, 95, .38); display: grid; place-items: center; }
-.slot .ghost { width: 26%; color: rgba(217, 178, 95, .24); transition: opacity .3s; }
-.slot .ghost .suit { display: block; width: 100%; height: auto; fill: currentColor; }
-.slot.filled { border-color: transparent; }
-.slot.filled .ghost { opacity: 0; }
+/* ---------- 布局：上面牌堆，中间下注圈，下面发出来的牌 ---------- */
+.stage { position: relative; z-index: 3; flex: none; width: 100%; height: calc(var(--dh) * 2.35); }
+.well { flex: 1; min-height: 0; width: 100%; display: grid; place-items: center; }
+.pile { position: relative; flex: none; width: 100%; height: calc(var(--pw) * 1.4 + 28px); }
 
-.hint { font-family: var(--serif); font-size: 13px; letter-spacing: .08em; color: var(--mist); min-height: 1.5em; text-align: center; }
-
-.acts { display: flex; gap: 10px; min-height: 44px; visibility: hidden; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s, visibility 0s .3s; }
-.acts.on { visibility: visible; opacity: 1; transform: none; transition: opacity .3s, transform .3s; }
-.go {
-  min-width: 112px; padding: 11px 26px; border-radius: 999px;
-  font-family: var(--serif); font-size: 15px; font-weight: 700; letter-spacing: .2em; color: var(--ink);
-  background: linear-gradient(180deg, #FFF9EA, #E7DBBD);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .8);
+/* 下注圈：平时是桌布上淡淡的印线；有牌能拖时轻轻呼吸；拿起牌时亮起来；牌进圈时放大 */
+.spot {
+  position: relative; width: var(--spot); aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid rgba(217, 178, 95, .32); opacity: .75;
+  transition: transform .3s cubic-bezier(.3, 1.4, .5, 1), background-color .3s, box-shadow .3s, border-color .3s, opacity .3s;
 }
-.swap { padding: 11px 20px; border-radius: 999px; font-size: 13px; letter-spacing: .1em; color: var(--ivory); border: 1px solid rgba(247, 241, 227, .35); background: rgba(0, 0, 0, .14); }
-.go:active, .swap:active { transform: scale(.96); }
+.spot::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; border: 1px dashed rgba(217, 178, 95, .26); transition: border-color .3s; }
+.spot .ghost { width: 26%; color: rgba(217, 178, 95, .24); transition: color .3s; }
+.spot .ghost .suit { display: block; width: 100%; height: auto; fill: currentColor; }
+.spot.ready { animation: spot-breathe 3s ease-in-out infinite; }
+.spot.live { opacity: 1; animation: none; border-color: var(--gold); box-shadow: 0 0 0 5px rgba(217, 178, 95, .1), 0 0 26px rgba(217, 178, 95, .35); }
+.spot.live::before { border-color: rgba(217, 178, 95, .6); animation: spot-spin 10s linear infinite; }
+.spot.live .ghost { color: rgba(217, 178, 95, .55); }
+.spot.hot { transform: scale(1.1); background-color: rgba(217, 178, 95, .12); }
+.spot.taken { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(217, 178, 95, .16), 0 0 44px rgba(217, 178, 95, .6); }
+@keyframes spot-breathe { 0%, 100% { opacity: .75; } 50% { opacity: 1; border-color: rgba(217, 178, 95, .6); } }
+@keyframes spot-spin { to { transform: rotate(360deg); } }
 
 /* ---------- 牌背：白边 + 红色格纹 + 中间一枚椭圆 ---------- */
 .dk, .pc-back {
@@ -116,8 +111,11 @@ body { font-family: var(--sans); }
 }
 
 /* ---------- 牌堆 ---------- */
-.stage { position: relative; flex: none; margin-bottom: auto; width: 100%; height: calc(var(--dh) * 2.35); perspective: 800px; transition: transform .6s ease, opacity .6s ease; }
-.stage.gone { transform: translateY(60px); opacity: 0; pointer-events: none; }
+.deck { position: absolute; inset: 0; perspective: 800px; transition: transform .5s ease, opacity .5s ease; }
+.stage.choosing .deck { transform: translateY(-36px); opacity: 0; pointer-events: none; }
+.row { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content: center; pointer-events: none; }
+.stage.choosing .row { pointer-events: auto; }
+.rslot { position: relative; aspect-ratio: 5 / 7; }
 .dk {
   position: absolute; left: 50%; top: 52%; width: var(--dw); height: var(--dh);
   margin: calc(var(--dh) / -2) 0 0 calc(var(--dw) / -2); border-radius: 6px; pointer-events: none;
@@ -138,7 +136,14 @@ body { font-family: var(--sans); }
 .pc .inner { position: absolute; inset: 0; border-radius: inherit; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.3, 1.25, .45, 1); }
 .pc.open .inner { transform: rotateY(180deg); }
 .pc.quick .inner { transition-duration: .3s; transition-timing-function: ease-in-out; }
-.pc.flying { z-index: 40; }
+.pc.flying { z-index: 40 !important; }
+.pc.dragging { transition: none; z-index: 60 !important; filter: drop-shadow(0 18px 22px rgba(0, 0, 0, .45)); }
+.pile .pc {
+  inset: auto; left: 50%; top: 14px; width: var(--pw); height: calc(var(--pw) * 1.4); margin-left: calc(var(--pw) / -2);
+  transform: translate(var(--ox, 0px), var(--oy, 0px)) rotate(var(--or, 0deg));
+}
+.pile .pc.under { pointer-events: none; }
+.pile .pc.under .pc-face { filter: brightness(.94); }
 .pc-back, .pc-face { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
 .pc-back { border-width: 5px; box-shadow: 0 6px 14px rgba(0, 0, 0, .35); }
 .pc-face {
@@ -168,9 +173,6 @@ body { font-family: var(--sans); }
 }
 .pc.shine .pc-face::after { animation: sweep 1s ease-out; }
 @keyframes sweep { to { transform: translateX(130%); } }
-.slot .pc.sel { transform: translateY(-6px); }
-.slot .pc.sel .pc-face { box-shadow: 0 0 0 2px var(--gold), 0 0 22px rgba(217, 178, 95, .55), 0 10px 18px rgba(0, 0, 0, .35); }
-.slot .pc.dim { opacity: .45; filter: saturate(.4) brightness(.85); }
 
 /* ---------- 专注页 ---------- */
 .focus {
@@ -239,9 +241,6 @@ body { font-family: var(--sans); }
 .confetti.red { color: #E0434B; }
 .confetti.pale { color: var(--ivory); }
 
-@media (max-height: 640px) {
-  .reading { gap: 12px; }
-}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

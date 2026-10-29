@@ -1,12 +1,14 @@
 /* 塔罗主题：摊开一排牌背，翻牌飞进三张牌位；翻满三张就三选一。
+   点牌面换一件同类的；把牌拖进中间的法阵就是选中它。
    计时用沙漏：点一下开始 / 暂停，点两下做完。
    主题按钮：右上角水晶球，点开右侧选主题。
    主题约定：导出 mount(root, app)，返回一个清理函数；app.openPicker() 打开选主题弹窗。 */
 import {
-  SCENES, sceneById, drawCard, canSwap, swapTask, Timer,
+  SCENES, sceneById, drawCard, swapTask, Timer,
   saveActive, loadActive, clearActive, unlockAudio, beep, chime, buzz
 } from '../../core/core.js';
 import { ICONS } from '../../core/icons.js';
+import { draggable, snapInto } from '../../core/drag.js';
 
 const MAX_DRAWS = 3;
 const DECK_SIZE = 7;
@@ -55,7 +57,33 @@ const ORB = `<svg viewBox="0 0 24 24" aria-hidden="true">
   <path class="orb-stand" d="M7.6 17.4q4.4 2 8.8 0l1.1 3H6.5z"/>
 </svg>`;
 
+/* ---------- 中间的法阵：把牌拖进来就是选中 ---------- */
+const SEAL = (() => {
+  const at = (n, r, rot) =>
+    Array.from({ length: n }, (_, i) => {
+      const a = ((rot + (i * 360) / n) * Math.PI) / 180;
+      return [60 + r * Math.cos(a), 60 + r * Math.sin(a)];
+    });
+  const pts = list => list.map(q => q.map(v => v.toFixed(2)).join(',')).join(' ');
+  let dots = '';
+  at(12, 51, -90).forEach(([x, y], i) => (dots += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${i % 3 ? 0.9 : 1.7}"/>`));
+  return `<svg viewBox="0 0 120 120" aria-hidden="true">
+    <g class="seal-outer">
+      <circle class="ln" cx="60" cy="60" r="56"/>
+      <circle class="ln thin" cx="60" cy="60" r="51" stroke-dasharray="1.5 3"/>
+      <g class="dots">${dots}</g>
+    </g>
+    <g class="seal-inner">
+      <polygon class="ln" points="${pts(at(3, 44, -90))}"/>
+      <polygon class="ln" points="${pts(at(3, 44, 90))}"/>
+      <circle class="ln thin" cx="60" cy="60" r="22"/>
+    </g>
+    <path class="moon" d="M63.5 52.6a8 8 0 1 0 0 14.8a7.4 7.4 0 1 1 0-14.8z"/>
+  </svg>`;
+})();
+
 /* ---------- 沙漏 ---------- */
+const GRAINS = 18;
 const GLASS_PATH = 'M26 16C26 62 55 84 56.5 100C55 116 26 138 26 184L94 184C94 138 65 116 63.5 100C65 84 94 62 94 16Z';
 const HOURGLASS = `<svg viewBox="0 0 120 200" aria-hidden="true">
   <defs>
@@ -66,6 +94,12 @@ const HOURGLASS = `<svg viewBox="0 0 120 200" aria-hidden="true">
     <linearGradient id="hg-gold" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#C9A45C"/><stop offset=".5" stop-color="#F4DFAA"/><stop offset="1" stop-color="#C9A45C"/>
     </linearGradient>
+    <pattern id="hg-speck" width="7" height="6" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r=".34" fill="#FFFFFF" opacity=".3"/>
+      <circle cx="4.6" cy="2.2" r=".3" fill="#B5809F" opacity=".26"/>
+      <circle cx="2.4" cy="4.4" r=".26" fill="#FFFFFF" opacity=".22"/>
+      <circle cx="6" cy="5.2" r=".3" fill="#B5809F" opacity=".22"/>
+    </pattern>
     <radialGradient id="hg-glass" cx=".5" cy=".5" r=".6">
       <stop offset="0" stop-color="#C8B8F4" stop-opacity=".16"/><stop offset="1" stop-color="#C8B8F4" stop-opacity=".04"/>
     </radialGradient>
@@ -73,10 +107,12 @@ const HOURGLASS = `<svg viewBox="0 0 120 200" aria-hidden="true">
   <rect x="17" y="14" width="2.2" height="172" rx="1.1" fill="url(#hg-gold)" opacity=".8"/>
   <rect x="100.8" y="14" width="2.2" height="172" rx="1.1" fill="url(#hg-gold)" opacity=".8"/>
   <path d="${GLASS_PATH}" fill="url(#hg-glass)"/>
-  <g class="sand" clip-path="url(#hg-clip)" fill="url(#hg-sand)">
-    <path class="sand-top"/>
-    <path class="sand-bot"/>
-    <line class="stream" x1="60" y1="99" x2="60" y2="180"/>
+  <g class="sand" clip-path="url(#hg-clip)">
+    <path class="st" fill="url(#hg-sand)"/><path class="st" fill="url(#hg-speck)"/>
+    <path class="sb" fill="url(#hg-sand)"/><path class="sb" fill="url(#hg-speck)"/>
+    <line class="stream-glow" x1="60" y1="100" x2="60" y2="180"/>
+    <line class="stream" x1="60" y1="100" x2="60" y2="180"/>
+    <g class="grains">${'<circle r="0" opacity="0"/>'.repeat(GRAINS)}</g>
   </g>
   <path d="${GLASS_PATH}" fill="none" stroke="#C8B8F4" stroke-opacity=".7" stroke-width="1.3"/>
   <path d="M33 26C34 52 46 72 52.5 88M33 174C34 150 44 130 50.5 116" fill="none" stroke="#FFF" stroke-opacity=".28" stroke-width="1.6" stroke-linecap="round"/>
@@ -148,16 +184,8 @@ export function mount(root, app = {}) {
   const reading = el('section', 'reading');
   const spread = el('div', 'spread');
   const slots = Array.from({ length: MAX_DRAWS }, () => spread.appendChild(el('div', 'slot')));
-  const hint = el('p', 'hint');
-  hint.setAttribute('aria-live', 'polite');
-  const acts = el('div', 'acts');
-  const goBtn = el('button', 'go', '就它');
-  const swapBtn = el('button', 'swap', '换一件');
-  goBtn.type = swapBtn.type = 'button';
-  goBtn.addEventListener('click', go);
-  swapBtn.addEventListener('click', swap);
-  acts.append(goBtn, swapBtn);
-  reading.append(spread, hint, acts);
+  const seal = el('div', 'seal', SEAL);
+  reading.append(spread, seal);
 
   const deck = el('div', 'deck gathered');
   const top = el('header', 'top');
@@ -244,7 +272,15 @@ export function mount(root, app = {}) {
     const i = st.drawn.length;
     const card = drawCard(scene, st.drawn.map(d => d.card.cat));
     const c = cardEl(card);
-    c.addEventListener('click', () => select(i));
+    draggable(c, {
+      enabled: () => !st.busy && canPick(c),
+      target: () => seal,
+      onTap: () => swap(c),
+      onStart: () => seal.classList.add('live'),
+      onHover: h => seal.classList.toggle('hot', h),
+      onDrop: () => choose(c),
+      onCancel: () => seal.classList.remove('live')
+    });
     slots[i].append(c);
     slots[i].classList.add('filled');
 
@@ -256,7 +292,7 @@ export function mount(root, app = {}) {
     const rot = +fanCard.dataset.r || 0;
     fanCard.remove();
     layoutDeck(false);
-    st.drawn.push({ card, el: c });
+    st.drawn.push({ card, el: c, ready: false });
     st.sel = -1;
     render();
 
@@ -274,7 +310,8 @@ export function mount(root, app = {}) {
       setTimeout(() => {
         c.classList.add('shine');
         burst(c, 10, 70);
-        st.sel = i;
+        st.drawn[i].ready = true;
+        st.sel = st.drawn.length >= MAX_DRAWS ? -1 : i;
         st.busy = false;
         if (st.drawn.length >= MAX_DRAWS) deck.classList.add('gone');
         render();
@@ -282,36 +319,59 @@ export function mount(root, app = {}) {
     };
   }
 
-  function select(i) {
-    if (st.busy || i >= st.drawn.length) return;
-    if (st.drawn.length < MAX_DRAWS && i !== st.drawn.length - 1) return;
-    st.sel = i;
-    render();
+  /* 没翻满三张时只有最新那张能动；翻满三张后三张都能动 */
+  function canPick(c) {
+    const n = st.drawn.length;
+    const i = st.drawn.findIndex(d => d.el === c);
+    if (i < 0 || !st.drawn[i].ready) return false;
+    return n >= MAX_DRAWS || i === n - 1;
   }
 
-  function swap() {
-    const d = st.drawn[st.sel];
+  function nudge(c) {
+    c.animate([{ rotate: '0deg' }, { rotate: '-3deg' }, { rotate: '3deg' }, { rotate: '-1.5deg' }, { rotate: '0deg' }], {
+      duration: ms(380),
+      easing: 'ease-in-out'
+    });
+  }
+
+  /* 点牌面：换一件同类的 */
+  function swap(c) {
+    const d = st.drawn.find(x => x.el === c);
     if (!d || st.busy) return;
     const next = swapTask(d.card);
-    if (next === d.card) return;
+    if (next === d.card) {
+      nudge(c);
+      return;
+    }
     st.busy = true;
-    d.el.animate([{ transform: 'translateY(-6px) scaleX(1)' }, { transform: 'translateY(-6px) scaleX(0)' }], {
-      duration: ms(170),
-      easing: 'ease-in'
-    }).onfinish = () => {
+    const out = c.animate([{ scale: '1 1' }, { scale: '0 1' }], { duration: ms(170), easing: 'ease-in', fill: 'forwards' });
+    out.onfinish = () => {
       d.card = next;
-      fillFace(d.el, next);
-      d.el.classList.remove('shine');
-      void d.el.offsetWidth;
-      d.el.classList.add('shine');
-      d.el.animate([{ transform: 'translateY(-6px) scaleX(0)' }, { transform: 'translateY(-6px) scaleX(1)' }], {
-        duration: ms(260),
-        easing: 'cubic-bezier(.2,1.4,.4,1)'
-      }).onfinish = () => {
+      fillFace(c, next);
+      c.classList.remove('shine');
+      void c.offsetWidth;
+      c.classList.add('shine');
+      c.animate([{ scale: '0 1' }, { scale: '1 1' }], { duration: ms(260), easing: 'cubic-bezier(.2,1.4,.4,1)' }).onfinish = () => {
         st.busy = false;
         render();
       };
+      out.cancel();
     };
+  }
+
+  /* 拖进法阵：选中这张 */
+  function choose(c) {
+    const d = st.drawn.find(x => x.el === c);
+    if (!d) return;
+    st.busy = true;
+    unlockAudio();
+    snapInto(c, seal, 0.9);
+    seal.classList.add('taken');
+    burst(seal, 14, 90);
+    setTimeout(() => {
+      seal.classList.remove('live', 'hot', 'taken');
+      openFocus(d.card, null);
+    }, ms(460));
   }
 
   function resetReading(first) {
@@ -343,11 +403,7 @@ export function mount(root, app = {}) {
       d.el.classList.toggle('sel', i === st.sel);
       d.el.classList.toggle('dim', n < MAX_DRAWS && i !== n - 1);
     });
-    hint.textContent =
-      n === 0 ? '凭直觉翻一张' : n < MAX_DRAWS ? `不想做就再翻一张，还剩 ${MAX_DRAWS - n} 次` : '三选一';
-    const cur = st.drawn[st.sel];
-    acts.classList.toggle('on', !!cur);
-    swapBtn.hidden = !cur || !canSwap(cur.card);
+    seal.classList.toggle('ready', !st.busy && st.drawn.some(d => canPick(d.el)));
   }
 
   /* ---------- 专注页 + 沙漏 ---------- */
@@ -368,8 +424,13 @@ export function mount(root, app = {}) {
 
   const q = s => focus.querySelector(s);
   const glass = q('.glass'), hg = glass.querySelector('svg');
-  const sandG = hg.querySelector('.sand'), sandTop = hg.querySelector('.sand-top'),
-    sandBot = hg.querySelector('.sand-bot'), stream = hg.querySelector('.stream');
+  const sandG = hg.querySelector('.sand');
+  const topPaths = hg.querySelectorAll('.st'), botPaths = hg.querySelectorAll('.sb');
+  const streams = hg.querySelectorAll('.stream, .stream-glow'), stream = hg.querySelector('.stream');
+  const grains = [...hg.querySelectorAll('.grains circle')].map((c, i) => ({
+    c, p: i / GRAINS + Math.random() * 0.04, j: Math.random() * 2 - 1, r: (0.5 + Math.random() * 0.45).toFixed(2)
+  }));
+  let streamEnd = 184, grainsOn = false;
   const timeEl = q('.time'), stateEl = q('.state');
   const [minus, plus] = focus.querySelectorAll('.adj');
 
@@ -392,12 +453,58 @@ export function mount(root, app = {}) {
     if (timer.state === 'running') loop();
   }
 
+  const f1 = n => n.toFixed(1);
+
+  /* 上面的沙子中间陷下去一个小坑，下面堆成一座小山 */
   function drawSand(frac, running) {
     const top = 100 - 64 * Math.sqrt(frac);
-    const pile = 60 * (1 - frac);
-    sandTop.setAttribute('d', frac > 0.002 ? `M0 ${top}Q60 ${top + (running ? 5 : 2)} 120 ${top}L120 101L0 101Z` : 'M0 0Z');
-    sandBot.setAttribute('d', pile > 0.4 ? `M0 186L120 186L120 ${184 - pile * 0.72}Q60 ${184 - pile * 1.28} 0 ${184 - pile * 0.72}Z` : 'M0 0Z');
-    stream.setAttribute('y2', (184 - pile).toFixed(1));
+    let dTop = 'M0 0Z';
+    if (frac > 0.002) {
+      const w = 16 + 14 * Math.sqrt(frac);
+      const dip = Math.max(0, Math.min(99.5 - top, running ? 3 + 7 * (1 - frac) : 2 + 3 * (1 - frac)));
+      dTop = `M0 ${f1(top)}L${f1(60 - w)} ${f1(top)}Q60 ${f1(top + dip * 2)} ${f1(60 + w)} ${f1(top)}L120 ${f1(top)}L120 101L0 101Z`;
+    }
+    const p = 60 * (1 - frac);
+    const peak = 184 - p * 1.1;
+    const dBot = p > 0.4
+      ? `M0 188L120 188L120 ${f1(184 - p * 0.5)}C90 ${f1(184 - p * 0.62)} 72 ${f1(peak + p * 0.05)} 60 ${f1(peak)}` +
+        `C48 ${f1(peak + p * 0.05)} 30 ${f1(184 - p * 0.62)} 0 ${f1(184 - p * 0.5)}Z`
+      : 'M0 0Z';
+    topPaths.forEach(x => x.setAttribute('d', dTop));
+    botPaths.forEach(x => x.setAttribute('d', dBot));
+    streamEnd = p > 0.4 ? peak : 184;
+    streams.forEach(x => x.setAttribute('y2', f1(streamEnd)));
+  }
+
+  /* 一粒粒沙子从瓶颈落下，砸到沙堆上往两边溅开 */
+  function drawGrains(now) {
+    const on = !!timer && timer.state === 'running' && !flipping && !reduce;
+    if (!on) {
+      if (grainsOn) grains.forEach(g => g.c.setAttribute('opacity', '0'));
+      grainsOn = false;
+      return;
+    }
+    grainsOn = true;
+    const t = now / 1000, y0 = 100.5, y1 = streamEnd;
+    grains.forEach(g => {
+      const u = (t * 1.7 + g.p) % 1;
+      let x, y, o = 0.95;
+      if (u < 0.86) {
+        const v = u / 0.86;
+        y = y0 + (y1 - y0) * v * v;
+        x = 60 + g.j * 0.5 * v;
+      } else {
+        const v = (u - 0.86) / 0.14;
+        x = 60 + g.j * (2 + 9 * v);
+        y = y1 - Math.sin(Math.PI * v) * (1.5 + 2.5 * Math.abs(g.j)) + v * 1.5;
+        o = 0.95 * (1 - v);
+      }
+      g.c.setAttribute('cx', x.toFixed(2));
+      g.c.setAttribute('cy', y.toFixed(2));
+      g.c.setAttribute('r', g.r);
+      g.c.setAttribute('opacity', o.toFixed(2));
+    });
+    stream.setAttribute('stroke-width', (1 + 0.25 * Math.sin(t * 37)).toFixed(2));
   }
 
   function renderTimer() {
@@ -416,16 +523,18 @@ export function mount(root, app = {}) {
       : s === 'over' ? (active.stop ? '到点啦，放下手机' : '时间到')
       : active.stop ? '到点就放下' : '';
     minus.disabled = s === 'over';
+    drawGrains(performance.now());
   }
 
   function loop() {
     cancelAnimationFrame(raf);
     const step = now => {
-      if (focus.hidden || timer.state !== 'running') return;
+      if (focus.hidden || !timer || timer.state !== 'running') return;
       if (now - last > 100) {
         last = now;
         renderTimer();
       }
+      drawGrains(now);
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
@@ -527,13 +636,6 @@ export function mount(root, app = {}) {
     })
   );
   q('.quit').addEventListener('click', quit);
-
-  function go() {
-    const d = st.drawn[st.sel];
-    if (!d || st.busy) return;
-    unlockAudio();
-    openFocus(d.card, null);
-  }
 
   function onVisible() {
     if (document.hidden || focus.hidden || !timer) return;

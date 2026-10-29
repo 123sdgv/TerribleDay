@@ -1,16 +1,18 @@
 /* 扑克主题：绿绒布牌桌。
-   点牌堆 → 随机来一种花切 → 甩出一张背面朝上的牌 → 点它翻开（出牌）。
-   最多发三张，三张都翻开后三选一。
+   上面点牌堆 → 随机来一种花切 → 甩一张牌到下面，落下就翻开。
+   点牌面换一件同类的；把牌拖进中间的下注圈就是选中它。
+   不满意再点牌堆，新的一张压在上面；第三张一落下，三张浮上来三选一。
    计时用扑克比赛那种计时屏：点一下开始 / 暂停，点两下做完。
    右上角一枚筹码打开选主题。
    主题约定：导出 mount(root, app)，返回一个清理函数；app.openPicker() 打开选主题弹窗。 */
 import {
-  SCENES, sceneById, drawCard, canSwap, swapTask, Timer,
+  SCENES, sceneById, drawCard, swapTask, Timer,
   saveActive, loadActive, clearActive, unlockAudio, beep, chime, buzz
 } from '../../core/core.js';
 import { RED, suitSvg, chipSvg, buildClock } from './art.js';
 import { FLOURISHES, place, move, rest, wait, ms, reduce } from './flourish.js';
 import { sfx } from './sfx.js';
+import { draggable, snapInto } from '../../core/drag.js';
 
 const MAX_DRAWS = 3;
 const DECK_SIZE = 18;
@@ -34,6 +36,7 @@ function btn(cls, html, label) {
   if (label) b.setAttribute('aria-label', label);
   return b;
 }
+const rand = (a, b) => a + Math.random() * (b - a);
 function fmt(t) {
   const s = Math.min(99 * 60 + 59, Math.ceil(t / 1000));
   return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
@@ -69,7 +72,8 @@ export function mount(root, app = {}) {
   let scene = SCENES[0];
   let deck = [];
   let lastTrick = '';
-  const st = { dealt: [], sel: -1, busy: false };
+  /* cards：发到下面的牌（从下往上）；phase：deal 还在发牌，choose 三选一 */
+  const st = { cards: [], phase: 'deal', busy: false };
   const suitOf = id => SUIT_OF[id] || 'spade';
 
   root.append(el('div', 'felt'));
@@ -96,27 +100,26 @@ export function mount(root, app = {}) {
   });
   top.append(nav, chip);
 
-  /* ---------- 中间：三个牌位、提示、按钮 ---------- */
-  const reading = el('section', 'reading');
-  const spread = el('div', 'spread');
-  const slots = Array.from({ length: MAX_DRAWS }, () => spread.appendChild(el('div', 'slot', '<span class="ghost"></span>')));
-  const hint = el('p', 'hint');
-  hint.setAttribute('aria-live', 'polite');
-  const acts = el('div', 'acts');
-  const goBtn = btn('go', '就它');
-  const swapBtn = btn('swap', '换一件');
-  goBtn.addEventListener('click', go);
-  swapBtn.addEventListener('click', swap);
-  acts.append(goBtn, swapBtn);
-  reading.append(spread, hint, acts);
-
-  /* ---------- 下面：牌堆 ---------- */
-  const stage = el('div', 'stage');
+  /* ---------- 上面：牌堆，花切都在这里；三选一时三张牌浮到这里 ---------- */
+  const stage = el('section', 'stage');
+  const deckWrap = el('div', 'deck');
   const deckBtn = btn('deck-btn', '', '发牌');
   deckBtn.addEventListener('click', deal);
-  stage.append(el('div', 'deck-shadow'), deckBtn);
+  deckWrap.append(el('div', 'deck-shadow'), deckBtn);
+  const row = el('div', 'row');
+  const rowSlots = Array.from({ length: MAX_DRAWS }, () => row.appendChild(el('div', 'rslot')));
+  stage.append(deckWrap, row);
 
-  table.append(top, reading, stage);
+  /* ---------- 中间：桌布上印的下注圈，把牌拖进来就是选中 ---------- */
+  const well = el('div', 'well');
+  const spot = el('div', 'spot', '<span class="ghost"></span>');
+  spot.setAttribute('aria-hidden', 'true');
+  well.append(spot);
+
+  /* ---------- 下面：发出来的牌，新的一张压在旧的上面 ---------- */
+  const pile = el('div', 'pile');
+
+  table.append(top, stage, well, pile);
   root.append(table);
 
   function cardSize() {
@@ -126,7 +129,7 @@ export function mount(root, app = {}) {
   function fillDeck() {
     while (deck.length < DECK_SIZE) {
       const c = el('div', 'dk');
-      stage.insertBefore(c, deckBtn);
+      deckWrap.insertBefore(c, deckBtn);
       place(c, rest(deck.length));
       c.style.zIndex = deck.length;
       deck.push(c);
@@ -134,9 +137,25 @@ export function mount(root, app = {}) {
   }
 
   /* ---------- 牌 ---------- */
-  function slotCard(card) {
+  function makeCard(card) {
     const c = btn('pc', '<div class="inner"><div class="pc-back"></div><div class="pc-face"></div></div>');
     fillFace(c, card);
+    c.setAttribute('aria-label', '一张背面朝上的牌');
+    draggable(c, {
+      enabled: () => !st.busy && canPick(c),
+      target: () => spot,
+      onTap: () => swap(c),
+      onStart: () => {
+        spot.classList.add('live');
+        sfx.tap(0.3);
+      },
+      onHover: h => {
+        spot.classList.toggle('hot', h);
+        if (h) sfx.chip();
+      },
+      onDrop: () => choose(c),
+      onCancel: () => spot.classList.remove('live')
+    });
     return c;
   }
   function fillFace(c, card) {
@@ -156,7 +175,7 @@ export function mount(root, app = {}) {
     task.textContent = card.task;
     task.hidden = card.task === card.cat;
     face.querySelector('.min').textContent = card.min + ' 分钟';
-    c._label = `${rank}，${card.cat}，${card.task}，${card.min} 分钟`;
+    c._label = `${rank}，${card.cat}，${card.task}，${card.min} 分钟。点一下换一件，拖进中间的圈就是选它`;
     if (c.classList.contains('open')) c.setAttribute('aria-label', c._label);
   }
   function glint(c) {
@@ -166,174 +185,215 @@ export function mount(root, app = {}) {
   }
   function nudge(c) {
     sfx.tap(0.35);
-    c.animate(
-      [{ transform: 'rotate(0)' }, { transform: 'rotate(-3deg)' }, { transform: 'rotate(3deg)' }, { transform: 'rotate(-1.5deg)' }, { transform: 'rotate(0)' }],
-      { duration: ms(380), easing: 'ease-in-out' }
-    );
+    c.animate([{ rotate: '0deg' }, { rotate: '-3deg' }, { rotate: '3deg' }, { rotate: '-1.5deg' }, { rotate: '0deg' }], {
+      duration: ms(380),
+      easing: 'ease-in-out'
+    });
+  }
+  /* 发牌阶段只有最上面那张能动；三选一时三张都能动 */
+  function canPick(c) {
+    const i = st.cards.findIndex(d => d.el === c);
+    if (i < 0 || !st.cards[i].open) return false;
+    return st.phase === 'choose' || i === st.cards.length - 1;
   }
 
-  /* ---------- 发牌：随机一种花切，然后甩出一张 ---------- */
+  /* ---------- 发牌：随机一种花切，然后甩一张到下面 ---------- */
   async function deal() {
-    const n = st.dealt.length;
-    const lastD = st.dealt[n - 1];
-    if (st.busy || n >= MAX_DRAWS) return;
-    if (lastD && !lastD.open) {
-      nudge(lastD.el);
-      return;
-    }
+    if (st.busy || st.phase !== 'deal' || st.cards.length >= MAX_DRAWS) return;
     unlockAudio();
     st.busy = true;
-    st.sel = -1;
+    render();
     const keys = Object.keys(FLOURISHES).filter(k => k !== lastTrick);
     const trick = keys[Math.floor(Math.random() * keys.length)];
     lastTrick = trick;
-    hint.textContent = FLOURISHES[trick].name;
-    render();
     const [W, H] = cardSize();
     deck = await FLOURISHES[trick].run(deck, W, H);
     await throwCard(W);
+    /* 第三张一落下，三张一起浮上来三选一 */
+    if (st.cards.length >= MAX_DRAWS) {
+      await wait(380);
+      await floatUp();
+    }
     st.busy = false;
     render();
   }
 
   async function throwCard(W) {
-    const i = st.dealt.length;
-    const card = drawCard(scene, st.dealt.map(d => d.card.cat));
+    const k = st.cards.length;
+    const card = drawCard(scene, st.cards.map(d => d.card.cat));
     const topCard = deck.pop();
     /* 拇指先把最上面那张推出来一点 */
-    await move(topCard, { ...rest(deck.length), x: W * 0.24, y: -8, r: -6 }, { duration: 160, easing: 'cubic-bezier(.3,.7,.3,1)' });
+    await move(topCard, { ...rest(deck.length), x: W * 0.2, y: 10, r: 6 }, { duration: 160, easing: 'cubic-bezier(.3,.7,.3,1)' });
 
-    const c = slotCard(card);
-    c.setAttribute('aria-label', '翻开这张牌');
-    c.addEventListener('click', () => onCard(c));
-    slots[i].append(c);
-    slots[i].classList.add('filled');
+    const c = makeCard(card);
+    /* 每张落下来都歪一点点，压在上一张上面能看到下面的牌边 */
+    const pose = { x: rand(-8, 8), y: rand(-5, 5), r: rand(-6, 6) };
+    c.style.setProperty('--ox', pose.x.toFixed(1) + 'px');
+    c.style.setProperty('--oy', pose.y.toFixed(1) + 'px');
+    c.style.setProperty('--or', pose.r.toFixed(1) + 'deg');
+    c.style.zIndex = k + 1;
+    pile.append(c);
+    const d = { card, el: c, open: false, pose };
+    st.cards.push(d);
+    render();
+
     const from = topCard.getBoundingClientRect();
     const to = c.getBoundingClientRect();
     const s0 = topCard.offsetWidth / c.offsetWidth;
     const dx = from.left + from.width / 2 - (to.left + to.width / 2);
     const dy = from.top + from.height / 2 - (to.top + to.height / 2);
     topCard.remove();
-    st.dealt.push({ card, el: c, open: false });
 
     sfx.flick();
     c.classList.add('flying');
-    const sm = ((s0 + 1) / 2) * 1.14;
+    const sm = ((s0 + 1) / 2) * 1.16;
+    const { x, y, r } = pose;
     await c
       .animate(
         [
-          { transform: `translate(${dx}px,${dy}px) rotate(-366deg) scale(${s0})` },
-          { transform: `translate(${dx * 0.42}px,${dy * 0.42 - 30}px) rotate(-150deg) scale(${sm})`, offset: 0.45 },
-          { transform: 'translate(0,0) rotate(-4deg) scale(1.035)', offset: 0.86 },
-          { transform: 'translate(0,0) rotate(0deg) scale(1)' }
+          { transform: `translate(${x + dx}px,${y + dy}px) rotate(${r - 354}deg) scale(${s0})` },
+          { transform: `translate(${x + dx * 0.4}px,${y + dy * 0.4 - 26}px) rotate(${r - 140}deg) scale(${sm})`, offset: 0.45 },
+          { transform: `translate(${x}px,${y}px) rotate(${r - 4}deg) scale(1.035)`, offset: 0.86 },
+          { transform: `translate(${x}px,${y}px) rotate(${r}deg) scale(1)` }
         ],
-        { duration: ms(660), easing: 'cubic-bezier(.22,.7,.3,1)' }
+        { duration: ms(680), easing: 'cubic-bezier(.22,.7,.3,1)' }
       )
       .finished.catch(() => {});
     c.classList.remove('flying');
     sfx.tap(0.8);
-    if (st.dealt.length >= MAX_DRAWS) stage.classList.add('gone');
-  }
 
-  /* ---------- 出牌：点背面朝上的牌翻开；翻开的牌点一下选中 ---------- */
-  function onCard(c) {
-    if (st.busy) return;
-    const i = st.dealt.findIndex(d => d.el === c);
-    const d = st.dealt[i];
-    if (!d) return;
-    const n = st.dealt.length;
-    if (!d.open) {
-      flip(d);
-      return;
-    }
-    if (n < MAX_DRAWS && i !== n - 1) return;
-    if (st.sel !== i) sfx.tap(0.4);
-    st.sel = i;
-    render();
-  }
-
-  function flip(d) {
-    unlockAudio();
-    d.open = true;
-    st.busy = true;
-    render();
+    /* 落下就翻开 */
+    await wait(90);
     sfx.flip();
-    d.el.classList.add('open');
-    d.el.setAttribute('aria-label', d.el._label);
-    d.el.animate(
-      [{ transform: 'translateY(0) scale(1)' }, { transform: 'translateY(-12px) scale(1.07)', offset: 0.45 }, { transform: 'translateY(-6px) scale(1)' }],
+    c.classList.add('open');
+    c.setAttribute('aria-label', c._label);
+    c.animate(
+      [{ translate: '0 0', scale: '1' }, { translate: '0 -14px', scale: '1.07', offset: 0.45 }, { translate: '0 0', scale: '1' }],
       { duration: ms(620), easing: 'cubic-bezier(.3,.7,.3,1)' }
     );
-    setTimeout(() => glint(d.el), ms(420));
-    setTimeout(() => {
-      st.sel = st.dealt.indexOf(d);
-      st.busy = false;
-      render();
-    }, ms(640));
+    await wait(440);
+    glint(c);
+    await wait(180);
+    d.open = true;
   }
 
-  /* 换一件：牌翻回去，换个同分类的，再翻开 */
-  async function swap() {
-    const d = st.dealt[st.sel];
+  /* 三张从下面浮到上面排成一排 */
+  async function floatUp() {
+    st.phase = 'choose';
+    stage.classList.add('choosing');
+    sfx.swoosh(0.4, 500, 1700);
+    const moves = st.cards.map(d => ({ d, from: d.el.getBoundingClientRect(), w: d.el.offsetWidth }));
+    moves.forEach(({ d }, k) => {
+      rowSlots[k].append(d.el);
+      d.el.classList.remove('under');
+      d.el.style.zIndex = '';
+    });
+    await Promise.all(
+      moves.map(({ d, from, w }, k) => {
+        const to = d.el.getBoundingClientRect();
+        const s = w / d.el.offsetWidth;
+        const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+        const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+        const r = d.pose.r;
+        return d.el
+          .animate(
+            [
+              { transform: `translate(${dx}px,${dy}px) rotate(${r}deg) scale(${s})` },
+              { transform: `translate(${dx * 0.45}px,${dy * 0.45 + 16}px) rotate(${r * 0.4}deg) scale(${((s + 1) / 2) * 1.05})`, offset: 0.55 },
+              { transform: 'translate(0px,0px) rotate(0deg) scale(1)' }
+            ],
+            { duration: ms(640), delay: ms((MAX_DRAWS - 1 - k) * 90), easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'backwards' }
+          )
+          .finished.catch(() => {});
+      })
+    );
+    sfx.tap(0.5);
+  }
+
+  /* 点牌面：牌翻回去，换个同分类的，再翻开 */
+  async function swap(c) {
+    const d = st.cards.find(x => x.el === c);
     if (!d || st.busy) return;
     const next = swapTask(d.card);
-    if (next === d.card) return;
+    if (next === d.card) {
+      nudge(c);
+      return;
+    }
     st.busy = true;
     render();
     sfx.flip();
-    d.el.classList.add('quick');
-    d.el.classList.remove('open');
+    c.classList.add('quick');
+    c.classList.remove('open');
     await wait(300);
     d.card = next;
-    fillFace(d.el, next);
+    fillFace(c, next);
     sfx.flip();
-    d.el.classList.add('open');
-    d.el.setAttribute('aria-label', d.el._label);
+    c.classList.add('open');
+    c.setAttribute('aria-label', c._label);
     await wait(320);
-    d.el.classList.remove('quick');
-    glint(d.el);
+    c.classList.remove('quick');
+    glint(c);
     st.busy = false;
     render();
   }
 
+  /* 拖进下注圈：选中这张 */
+  function choose(c) {
+    const d = st.cards.find(x => x.el === c);
+    if (!d) return;
+    st.busy = true;
+    unlockAudio();
+    sfx.tap(0.9);
+    snapInto(c, spot, 0.86);
+    spot.classList.add('taken');
+    render();
+    setTimeout(() => {
+      spot.classList.remove('live', 'hot', 'taken');
+      openFocus(d.card, null);
+    }, ms(460));
+  }
+
   /* 收牌：桌上的牌翻回背面，飞回牌堆 */
   async function collect() {
-    const ds = st.dealt;
-    st.dealt = [];
-    st.sel = -1;
-    const wasGone = stage.classList.contains('gone');
-    stage.classList.remove('gone');
+    const ds = st.cards;
+    const wasChoosing = st.phase === 'choose';
+    st.cards = [];
+    st.phase = 'deal';
+    stage.classList.remove('choosing');
     render();
     if (ds.length) {
-      if (wasGone) await wait(260);
-      const box = stage.getBoundingClientRect();
+      if (wasChoosing) await wait(300);
+      const box = deckWrap.getBoundingClientRect();
       const [W] = cardSize();
       const cx = box.left + box.width / 2, cy = box.top + box.height * 0.52;
       sfx.riffle(ds.length, 0.08, 0.12, 0.36);
       await Promise.all(
         ds.map((d, k) => {
-          const r = d.el.getBoundingClientRect();
+          const c = d.el;
+          const now = getComputedStyle(c).transform;
+          c.style.transition = 'none';
+          c.style.transform = 'none';
+          const r = c.getBoundingClientRect();
           const tx = cx - (r.left + r.width / 2), ty = cy - (r.top + r.height / 2);
-          d.el.classList.remove('sel', 'dim', 'open');
-          d.el.style.zIndex = 40 + k;
-          return d.el
+          c.classList.remove('open', 'under', 'shine');
+          c.style.zIndex = 40 + k;
+          return c
             .animate(
-              [{ transform: 'translate(0,0) rotate(0deg) scale(1)' }, { transform: `translate(${tx}px,${ty}px) rotate(360deg) scale(${W / d.el.offsetWidth})` }],
-              { duration: ms(520), delay: ms(k * 80), easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' }
+              [{ transform: now === 'none' ? 'translate(0px,0px)' : now }, { transform: `translate(${tx}px,${ty}px) scale(${W / c.offsetWidth})` }],
+              { duration: ms(520), delay: ms(k * 80), easing: 'cubic-bezier(.5,0,.3,1)', fill: 'both' }
             )
             .finished.catch(() => {})
-            .then(() => d.el.remove());
+            .then(() => c.remove());
         })
       );
     }
-    slots.forEach(s => s.classList.remove('filled'));
     fillDeck();
   }
 
   async function setScene(id) {
     if (st.busy) return;
     const next = sceneById(id);
-    if (next.id === scene.id && !st.dealt.length) return;
+    if (next.id === scene.id && !st.cards.length) return;
     unlockAudio();
     scene = next;
     sfx.tap(0.4);
@@ -345,36 +405,15 @@ export function mount(root, app = {}) {
   }
   function showScene() {
     tabs.forEach((b, i) => b.setAttribute('aria-selected', SCENES[i].id === scene.id));
-    slots.forEach(s => (s.querySelector('.ghost').innerHTML = suitSvg(suitOf(scene.id))));
+    spot.querySelector('.ghost').innerHTML = suitSvg(suitOf(scene.id));
   }
 
   function render() {
-    const n = st.dealt.length;
-    const lastD = st.dealt[n - 1];
-    st.dealt.forEach((d, i) => {
-      d.el.classList.toggle('sel', i === st.sel);
-      d.el.classList.toggle('dim', n < MAX_DRAWS && i !== n - 1);
-    });
-    if (!st.busy) {
-      hint.textContent =
-        n === 0 ? '点牌堆发牌'
-        : !lastD.open ? '点一下翻开'
-        : n < MAX_DRAWS ? `不想做就再发一张，还剩 ${MAX_DRAWS - n} 次`
-        : '三选一';
-    }
-    const cur = st.dealt[st.sel];
-    acts.classList.toggle('on', !!cur && !st.busy);
-    swapBtn.hidden = !cur || !canSwap(cur.card);
-    deckBtn.disabled = st.busy || n >= MAX_DRAWS;
+    const n = st.cards.length;
+    st.cards.forEach((d, i) => d.el.classList.toggle('under', st.phase === 'deal' && i < n - 1));
+    deckBtn.disabled = st.busy || st.phase !== 'deal' || n >= MAX_DRAWS;
     chip.disabled = st.busy;
-  }
-
-  function go() {
-    const d = st.dealt[st.sel];
-    if (!d || st.busy) return;
-    unlockAudio();
-    sfx.tap(0.5);
-    openFocus(d.card, null);
+    spot.classList.toggle('ready', !st.busy && st.cards.some(d => canPick(d.el)));
   }
 
   /* ---------- 专注页 + 比赛计时屏 ---------- */
