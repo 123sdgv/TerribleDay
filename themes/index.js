@@ -10,5 +10,6 @@
    2. 在下面加一行。排第一个的是默认主题。color 是手机顶部状态栏的颜色。 */
 export const THEMES = [
   { id: 'tarot', name: '塔罗', color: '#1B1433', load: () => import('./tarot/index.js') },
-  { id: 'poker', name: '扑克', color: '#0E3B26', load: () => import('./poker/index.js') }
+  { id: 'poker', name: '扑克', color: '#0E3B26', load: () => import('./poker/index.js') },
+  { id: 'qian', name: '抽签', color: '#F2ECDF', load: () => import('./qian/index.js') }
 ];

@@ -1,11 +1,13 @@
 /* 所有主题共用的牌的手势：
    点一下（几乎没动就松手） → onTap，用来换一件同类的；
    按住拖动 → 牌跟着手指走，拖进目标圈松手 → onDrop，用来选中；没进圈就弹回原处。
-   牌在拖的时候会加上 .dragging（主题里用它关掉过渡、抬高层级）。 */
+   牌在拖的时候会加上 .dragging（主题里用它关掉过渡、抬高层级）。
+   lift（可选）：拖动时缩放多少，传一个函数，参数是手指拖了多远（px）；
+   给了 lift 就以手指按下的地方为中心缩放，大张的纸拖起来可以缩小，手指下面那一点不会跑。 */
 
 const MOVE = 10;
 
-export function draggable(el, { enabled = () => true, target, onTap, onStart, onHover, onDrop, onCancel } = {}) {
+export function draggable(el, { enabled = () => true, target, onTap, onStart, onHover, onDrop, onCancel, lift } = {}) {
   let s = null;
   el.style.touchAction = 'none';
 
@@ -20,7 +22,8 @@ export function draggable(el, { enabled = () => true, target, onTap, onStart, on
 
   el.addEventListener('pointerdown', e => {
     if (s || !enabled() || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    s = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0, drag: false, hot: false };
+    const r = el.getBoundingClientRect();
+    s = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, dx: 0, dy: 0, drag: false, hot: false };
     try { el.setPointerCapture(e.pointerId); } catch (err) {}
   });
 
@@ -31,11 +34,13 @@ export function draggable(el, { enabled = () => true, target, onTap, onStart, on
     if (!s.drag && Math.hypot(s.dx, s.dy) > MOVE) {
       s.drag = true;
       el.classList.add('dragging');
+      if (lift) el.style.transformOrigin = `${s.ox}px ${s.oy}px`;
       if (onStart) onStart();
     }
     if (!s.drag) return;
     const tilt = Math.max(-12, Math.min(12, s.dx * 0.05));
-    el.style.transform = `translate(${s.dx}px,${s.dy}px) rotate(${tilt}deg) scale(1.06)`;
+    const k = lift ? lift(Math.hypot(s.dx, s.dy)) : 1.06;
+    el.style.transform = `translate(${s.dx}px,${s.dy}px) rotate(${tilt}deg) scale(${k})`;
     const hot = inTarget();
     if (hot !== s.hot) {
       s.hot = hot;
